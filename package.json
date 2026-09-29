@@ -1,0 +1,13 @@
+{
+  "name": "logical-thinking-training",
+  "version": "1.0.0",
+  "private": true,
+  "description": "逻辑思维与表达能力训练工具",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

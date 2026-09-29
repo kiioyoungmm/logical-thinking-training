@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f2e8" />
+    <title>理序 · 思辨训练台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#home" aria-label="返回首页">
+          <span class="brand-mark">理</span>
+          <span><strong>理序</strong><small>思辨训练台</small></span>
+        </a>
+        <nav class="nav-list" aria-label="主要导航">
+          <button class="nav-item active" data-view="home"><span>⌂</span>今日概览</button>
+          <button class="nav-item" data-view="checkin"><span>✓</span>打卡训练</button>
+          <button class="nav-item" data-view="material"><span>⌁</span>材料分析</button>
+          <button class="nav-item" data-view="records"><span>◷</span>训练记录</button>
+          <button class="nav-item" data-view="profile"><span>◇</span>能力档案</button>
+        </nav>
+        <button class="nav-item settings-link" data-view="settings"><span>⚙</span>模型设置</button>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="page-eyebrow">DAILY PRACTICE</p>
+            <h1 id="page-title">今天，也把想法理清楚</h1>
+          </div>
+          <button class="icon-button" data-view="settings" aria-label="打开设置">⚙</button>
+        </header>
+
+        <section class="view active" id="view-home">
+          <div class="hero-card">
+            <div>
+              <span class="pill">今日训练 · 约 10 分钟</span>
+              <h2>先想清楚，再说明白。</h2>
+              <p>一道题、两次表达、一次有针对性的反馈。重点不在答得漂亮，而在看见自己的思考过程。</p>
+              <button class="primary-button" data-view="checkin">开始今日训练 <span>→</span></button>
+            </div>
+            <div class="hero-visual" aria-hidden="true">
+              <span class="orbit orbit-one"></span><span class="orbit orbit-two"></span>
+              <strong>想</strong><i></i><strong>说</strong>
+            </div>
+          </div>
+
+          <div class="stat-grid">
+            <article class="stat-card"><span>连续训练</span><strong id="home-streak">0<small> 天</small></strong><p>从今天开始积累</p></article>
+            <article class="stat-card"><span>累计完成</span><strong id="home-total">0<small> 次</small></strong><p>包括打卡与材料分析</p></article>
+            <article class="stat-card accent"><span>当前关注</span><strong id="home-focus">建立训练基线</strong><p>根据练习记录自动更新</p></article>
+          </div>
+
+          <div class="section-heading"><div><p class="eyebrow">TWO WAYS TO PRACTICE</p><h2>选择训练方式</h2></div></div>
+          <div class="choice-grid">
+            <button class="choice-card" data-view="checkin"><span class="choice-index">01</span><h3>打卡训练</h3><p>系统出题，完成初答、反馈和改写，用稳定节奏提升结构化思考。</p><b>进入训练 →</b></button>
+            <button class="choice-card dark" data-view="material"><span class="choice-index">02</span><h3>材料分析</h3><p>粘贴文章或观点，练习提取论点、识别论据、发现隐含前提与逻辑漏洞。</p><b>开始分析 →</b></button>
+          </div>
+        </section>
+
+        <section class="view" id="view-checkin">
+          <div class="training-layout">
+            <article class="paper-card question-card">
+              <div class="card-meta"><span class="pill" id="question-category">观点分析</span><span id="question-number">今日第 1 题</span></div>
+              <h2 id="question-title"></h2>
+              <p id="question-context" class="question-context"></p>
+              <div class="prompt-box"><strong>请完成：</strong><ul id="question-requirements"></ul></div>
+              <button class="text-button" id="change-question">换一道题</button>
+            </article>
+
+            <article class="paper-card answer-card">
+              <div class="card-title-row"><div><p class="eyebrow">YOUR ANSWER</p><h2 id="answer-title">第一次作答</h2></div><span id="answer-step" class="step-badge">1 / 2</span></div>
+              <textarea id="checkin-answer" maxlength="1600" placeholder="先用一句话写出结论，再给出 2～3 个理由……"></textarea>
+              <div class="editor-footer"><span><b id="checkin-count">0</b> / 1600 字</span><button class="primary-button" id="submit-checkin">提交并获取反馈</button></div>
+            </article>
+          </div>
+          <section class="feedback-panel hidden" id="checkin-feedback"></section>
+        </section>
+
+        <section class="view" id="view-material">
+          <div class="section-heading split-heading">
+            <div><p class="eyebrow">FREE PRACTICE</p><h2>把正在读的内容变成训练材料</h2><p>粘贴一段文字，先自己拆解，再与 AI 的分析对照。</p></div>
+            <div class="segmented" role="group" aria-label="分析模式">
+              <button class="active" data-mode="training">训练模式</button><button data-mode="direct">直接分析</button>
+            </div>
+          </div>
+          <article class="paper-card material-card">
+            <label for="material-input">原始材料</label>
+            <textarea id="material-input" maxlength="8000" placeholder="粘贴文章、新闻、会议观点或你想分析的任意文字……"></textarea>
+            <span class="count-line"><b id="material-count">0</b> / 8000 字</span>
+            <div id="training-fields" class="training-fields">
+              <label for="user-claim">你认为它的核心结论是什么？</label>
+              <textarea id="user-claim" maxlength="500" placeholder="用一句话概括核心结论"></textarea>
+              <label for="user-evidence">它用了哪些主要论据？</label>
+              <textarea id="user-evidence" maxlength="1000" placeholder="按 1、2、3 列出主要论据"></textarea>
+            </div>
+            <div class="action-row"><p>AI 会区分事实、观点、假设与推论。</p><button class="primary-button" id="analyze-material">开始分析</button></div>
+          </article>
+          <section class="feedback-panel hidden" id="material-result"></section>
+        </section>
+
+        <section class="view" id="view-records">
+          <div class="section-heading"><div><p class="eyebrow">PRACTICE HISTORY</p><h2>训练记录</h2><p>回看进步，也回看反复出现的问题。</p></div><button class="outline-button" id="clear-records">清空记录</button></div>
+          <div id="record-list" class="record-list"></div>
+        </section>
+
+        <section class="view" id="view-profile">
+          <div class="section-heading"><div><p class="eyebrow">ABILITY PROFILE</p><h2>能力档案</h2><p>只有完成过 AI 评分的打卡训练，才会进入能力统计。</p></div></div>
+          <div class="profile-grid">
+            <article class="paper-card"><h3>五项能力</h3><div id="ability-bars" class="ability-bars"></div></article>
+            <article class="paper-card focus-card"><span class="pill">下一步</span><h3 id="profile-focus">先完成第一次训练</h3><p id="profile-advice">系统会根据最低得分维度，给出下一阶段的练习重点。</p><button class="primary-button" data-view="checkin">去训练</button></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-settings">
+          <div class="section-heading"><div><p class="eyebrow">AI SETTINGS</p><h2>模型设置</h2><p>当前仅支持 DeepSeek，后续可扩展其他模型。</p></div></div>
+          <article class="paper-card settings-card">
+            <div class="status-row"><div><strong>DeepSeek</strong><p>deepseek-chat</p></div><span class="status-dot" id="key-status">未配置</span></div>
+            <label for="api-key">API Key</label>
+            <div class="key-input"><input id="api-key" type="password" autocomplete="off" placeholder="sk-……" /><button id="toggle-key" class="outline-button">显示</button></div>
+            <p class="privacy-note">为降低泄露风险，网页填写的 Key 仅保存在当前浏览器会话中，关闭浏览器后自动清除。也可以在服务器环境变量中配置。</p>
+            <div class="action-row"><button class="text-button danger" id="clear-key">清除</button><button class="primary-button" id="save-key">保存设置</button></div>
+          </article>
+        </section>
+      </main>
+
+      <nav class="mobile-nav" aria-label="手机端导航">
+        <button class="active" data-view="home"><span>⌂</span>首页</button><button data-view="checkin"><span>✓</span>打卡</button><button data-view="material"><span>⌁</span>分析</button><button data-view="records"><span>◷</span>记录</button><button data-view="profile"><span>◇</span>档案</button>
+      </nav>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

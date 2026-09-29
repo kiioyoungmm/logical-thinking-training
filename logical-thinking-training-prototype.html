@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>理序 · 逻辑思维训练台</title>
+  <style>
+    :root {
+      --paper: #f6f3ec;
+      --surface: #fffdf8;
+      --surface-strong: #ffffff;
+      --ink: #17231e;
+      --muted: #657069;
+      --line: #dedfd8;
+      --brand: #194f40;
+      --brand-2: #0f3c31;
+      --accent: #f0a23a;
+      --accent-soft: #fff2dc;
+      --good: #2c7a58;
+      --good-soft: #e8f4ed;
+      --warn: #9d5a1b;
+      --warn-soft: #fff1e3;
+      --danger: #9c3f36;
+      --shadow: 0 14px 38px rgba(23, 35, 30, 0.08);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 11px;
+      --sidebar: 244px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 8% 3%, rgba(240, 162, 58, 0.10), transparent 24rem),
+        var(--paper);
+      color: var(--ink);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      line-height: 1.55;
+    }
+
+    button, textarea, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+
+    .app { min-height: 100vh; }
+
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 20;
+      display: flex;
+      width: var(--sidebar);
+      flex-direction: column;
+      padding: 28px 20px 24px;
+      border-right: 1px solid rgba(25, 79, 64, 0.12);
+      background: rgba(255, 253, 248, 0.88);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 8px 26px;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 14px;
+      background: var(--brand);
+      color: white;
+      font-family: Georgia, serif;
+      font-size: 22px;
+      box-shadow: 0 8px 20px rgba(25, 79, 64, 0.20);
+    }
+
+    .brand strong { display: block; font-size: 18px; letter-spacing: 0.08em; }
+    .brand small { color: var(--muted); font-size: 11px; }
+
+    .nav { display: grid; gap: 7px; }
+
+    .nav-button {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      transition: 160ms ease;
+    }
+
+    .nav-button:hover { background: #eef1eb; color: var(--ink); }
+    .nav-button.active { background: var(--brand); color: white; }
+
+    .nav-icon {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .sidebar-note {
+      margin-top: auto;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(246, 243, 236, 0.75);
+    }
+
+    .sidebar-note strong { display: block; margin-bottom: 4px; font-size: 13px; }
+    .sidebar-note p { margin: 0; color: var(--muted); font-size: 12px; }
+
+    .main {
+      min-height: 100vh;
+      margin-left: var(--sidebar);
+      padding: 28px clamp(24px, 4vw, 60px) 70px;
+    }
+
+    .topbar {
+      display: flex;
+      max-width: 1180px;
+      margin: 0 auto 30px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--brand);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .topbar h1 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: clamp(25px, 3vw, 36px); }
+
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+
+    .streak {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 13px;
+      border: 1px solid #ead6b2;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #78501c;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .avatar {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--brand);
+      font-weight: 800;
+    }
+
+    .view { display: none; max-width: 1180px; margin: 0 auto; animation: fade 220ms ease; }
+    .view.active { display: block; }
+
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .grid { display: grid; gap: 20px; }
+    .grid-2 { grid-template-columns: minmax(0, 1.45fr) minmax(290px, 0.75fr); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .card {
+      border: 1px solid rgba(23, 35, 30, 0.11);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 253, 248, 0.92);
+      box-shadow: var(--shadow);
+    }
+
+    .card-body { padding: clamp(20px, 3vw, 30px); }
+
+    .hero {
+      position: relative;
+      min-height: 350px;
+      overflow: hidden;
+      background: var(--brand);
+      color: white;
+    }
+
+    .hero::after {
+      position: absolute;
+      right: -80px;
+      bottom: -105px;
+      width: 290px;
+      height: 290px;
+      border: 52px solid rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .hero::before {
+      position: absolute;
+      top: 36px;
+      right: 55px;
+      width: 96px;
+      height: 96px;
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      border-radius: 30px;
+      content: "";
+      transform: rotate(18deg);
+    }
+
+    .hero-content { position: relative; z-index: 2; max-width: 650px; padding: clamp(26px, 5vw, 46px); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .hero h2 {
+      max-width: 560px;
+      margin: 22px 0 14px;
+      font-family: Georgia, "Songti SC", serif;
+      font-size: clamp(31px, 5vw, 52px);
+      line-height: 1.15;
+    }
+
+    .hero p { max-width: 600px; margin: 0 0 28px; color: rgba(255, 255, 255, 0.76); }
+
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-bottom: 28px; font-size: 13px; }
+    .hero-meta span::before { margin-right: 7px; color: var(--accent); content: "●"; font-size: 9px; }
+
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      font-weight: 750;
+      transition: 160ms ease;
+    }
+
+    .button:hover { transform: translateY(-1px); }
+    .button-primary { background: var(--accent); color: #2a210f; }
+    .button-primary:hover { background: #f5af50; }
+    .button-brand { background: var(--brand); color: white; }
+    .button-brand:hover { background: var(--brand-2); }
+    .button-outline { border-color: var(--line); background: var(--surface); color: var(--ink); }
+    .button-ghost { background: transparent; color: var(--muted); }
+    .button-block { width: 100%; }
+
+    .section-heading {
+      display: flex;
+      margin-bottom: 16px;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-heading h2, .section-heading h3 { margin: 0; font-family: Georgia, "Songti SC", serif; }
+    .section-heading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+    .focus-card { display: flex; min-height: 100%; flex-direction: column; justify-content: space-between; }
+
+    .focus-label { color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: 0.08em; }
+    .focus-card h3 { margin: 16px 0 8px; font-size: 25px; }
+    .focus-card p { margin: 0; color: var(--muted); }
+
+    .progress-ring {
+      position: relative;
+      display: grid;
+      width: 118px;
+      height: 118px;
+      margin: 24px auto;
+      place-items: center;
+      border-radius: 50%;
+      background: conic-gradient(var(--accent) 0 68%, #e7e6df 68% 100%);
+    }
+
+    .progress-ring::after { position: absolute; inset: 11px; border-radius: 50%; background: var(--surface); content: ""; }
+    .progress-ring span { position: relative; z-index: 1; font-size: 24px; font-weight: 850; }
+    .progress-ring small { display: block; color: var(--muted); font-size: 10px; font-weight: 600; }
+
+    .tip { padding: 14px; border-radius: 12px; background: var(--accent-soft); color: #76501e; font-size: 13px; }
+
+    .quick-actions { margin-top: 24px; }
+
+    .quick-card {
+      display: flex;
+      min-height: 144px;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255, 253, 248, 0.72);
+      text-align: left;
+      transition: 180ms ease;
+    }
+
+    .quick-card:hover { border-color: rgba(25, 79, 64, 0.4); transform: translateY(-2px); box-shadow: 0 10px 26px rgba(23, 35, 30, 0.07); }
+    .quick-card strong { display: block; margin-bottom: 5px; font-size: 16px; }
+    .quick-card span { color: var(--muted); font-size: 13px; }
+    .quick-card b { color: var(--brand); font-size: 21px; }
+
+    .history-list { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); }
+
+    .history-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 120px 80px;
+      gap: 16px;
+      padding: 16px 18px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .history-row:last-child { border-bottom: 0; }
+    .history-row small { color: var(--muted); }
+    .history-row strong { font-size: 14px; }
+
+    .tag { display: inline-flex; width: fit-content; padding: 4px 8px; border-radius: 999px; background: #edf1ee; color: #496158; font-size: 11px; font-weight: 750; }
+    .tag.good { background: var(--good-soft); color: var(--good); }
+    .tag.warn { background: var(--warn-soft); color: var(--warn); }
+
+    .page-intro { margin-bottom: 24px; }
+    .page-intro h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", serif; font-size: clamp(28px, 4vw, 42px); }
+    .page-intro p { max-width: 720px; margin: 0; color: var(--muted); }
+
+    .stepper { display: flex; gap: 8px; margin: 0 0 24px; }
+    .step { height: 6px; flex: 1; border-radius: 999px; background: #dddcd6; }
+    .step.done { background: var(--brand); }
+    .step.current { background: var(--accent); }
+
+    .question-box { padding: clamp(22px, 4vw, 34px); }
+
+    .question-box h3 {
+      max-width: 780px;
+      margin: 18px 0 12px;
+      font-family: Georgia, "Songti SC", serif;
+      font-size: clamp(24px, 4vw, 34px);
+      line-height: 1.35;
+    }
+
+    .question-box > p { color: var(--muted); }
+    .question-meta { display: flex; flex-wrap: wrap; gap: 9px; }
+
+    .answer-panel { margin-top: 20px; padding: clamp(20px, 3vw, 28px); }
+
+    .field-label { display: flex; margin-bottom: 9px; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 750; }
+    .field-label small { color: var(--muted); font-weight: 500; }
+
+    textarea, .text-input {
+      width: 100%;
+      border: 1px solid #d8d9d2;
+      border-radius: 14px;
+      outline: none;
+      background: #fffefa;
+      color: var(--ink);
+      transition: 160ms ease;
+    }
+
+    textarea { min-height: 210px; padding: 17px; resize: vertical; }
+    .text-input { min-height: 44px; padding: 10px 13px; }
+    textarea:focus, .text-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(25, 79, 64, 0.10); }
+
+    .input-footer { display: flex; margin-top: 14px; align-items: center; justify-content: space-between; gap: 14px; }
+    .input-footer small { color: var(--muted); }
+
+    details.framework { margin: 16px 0 0; border: 1px solid var(--line); border-radius: 12px; background: #f7f7f2; }
+    details.framework summary { padding: 12px 14px; cursor: pointer; color: var(--brand); font-size: 13px; font-weight: 750; }
+    details.framework div { padding: 0 14px 14px; color: var(--muted); font-size: 13px; }
+
+    .feedback { display: none; margin-top: 20px; }
+    .feedback.visible { display: block; }
+
+    .feedback-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.7fr); gap: 20px; }
+
+    .analysis-card { padding: 24px; }
+    .analysis-card h3 { margin: 0 0 16px; font-size: 18px; }
+
+    .argument-map { display: grid; gap: 10px; }
+    .argument-node { padding: 13px 15px; border-left: 3px solid var(--brand); border-radius: 0 10px 10px 0; background: #eff3f0; }
+    .argument-node.reason { margin-left: 22px; border-left-color: var(--accent); background: #fff6e8; }
+    .argument-node small { display: block; color: var(--muted); }
+
+    .finding { padding: 15px; border-radius: 13px; background: var(--warn-soft); }
+    .finding + .finding { margin-top: 10px; }
+    .finding strong { display: block; margin-bottom: 5px; color: var(--warn); }
+    .finding p { margin: 0; font-size: 13px; }
+
+    .score-list { display: grid; gap: 14px; }
+    .score-row { display: grid; grid-template-columns: 92px 1fr 28px; gap: 10px; align-items: center; font-size: 13px; }
+    .score-bar { height: 7px; overflow: hidden; border-radius: 99px; background: #e6e7e1; }
+    .score-bar i { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
+
+    .rewrite-box { margin-top: 20px; padding: 22px; border: 1px solid #ecc992; border-radius: var(--radius-md); background: var(--accent-soft); }
+    .rewrite-box h3 { margin: 0 0 6px; }
+    .rewrite-box p { margin: 0 0 14px; color: #76501e; }
+
+    .segmented { display: inline-flex; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #ecece6; }
+    .segment { padding: 8px 13px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 750; }
+    .segment.active { background: var(--surface-strong); color: var(--ink); box-shadow: 0 2px 8px rgba(23, 35, 30, 0.08); }
+
+    .material-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 20px; }
+    .material-main, .material-side { padding: clamp(20px, 3vw, 28px); }
+    .material-side h3 { margin-top: 0; }
+
+    .choice-list { display: grid; gap: 8px; }
+    .choice {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--surface);
+      font-size: 13px;
+    }
+
+    .choice input { accent-color: var(--brand); }
+    .privacy-note { margin-top: 18px; padding: 13px; border-radius: 11px; background: #eef2ef; color: var(--muted); font-size: 12px; }
+
+    .metric-card { padding: 20px; }
+    .metric-card span { color: var(--muted); font-size: 12px; }
+    .metric-card strong { display: block; margin: 7px 0 2px; font-family: Georgia, serif; font-size: 30px; }
+    .metric-card small { color: var(--good); }
+
+    .profile-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; }
+    .profile-card { padding: 26px; }
+
+    .radar-placeholder {
+      position: relative;
+      display: grid;
+      min-height: 330px;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .radar {
+      position: relative;
+      width: 230px;
+      height: 230px;
+      background: repeating-radial-gradient(circle, transparent 0 29px, #d9ddd9 30px 31px);
+      clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+    }
+
+    .radar::after {
+      position: absolute;
+      inset: 34px 28px 42px 35px;
+      background: rgba(25, 79, 64, 0.66);
+      clip-path: polygon(50% 3%, 87% 29%, 75% 73%, 48% 94%, 11% 72%, 19% 31%);
+      content: "";
+    }
+
+    .weakness-list { display: grid; gap: 11px; }
+    .weakness { display: flex; padding: 13px 0; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+    .weakness:last-child { border-bottom: 0; }
+    .weakness b { display: block; font-size: 14px; }
+    .weakness small { color: var(--muted); }
+    .count { display: grid; min-width: 34px; height: 34px; place-items: center; border-radius: 50%; background: var(--warn-soft); color: var(--warn); font-weight: 800; }
+
+    .empty-demo { padding: 48px 20px; text-align: center; }
+    .empty-demo strong { display: block; margin-bottom: 6px; font-size: 20px; }
+    .empty-demo p { margin: 0 0 18px; color: var(--muted); }
+
+    .mobile-nav { display: none; }
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 50;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: var(--ink);
+      color: white;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: 180ms ease;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+    }
+    .toast.visible { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 980px) {
+      :root { --sidebar: 84px; }
+      .brand-copy, .nav-label, .sidebar-note { display: none; }
+      .brand { justify-content: center; padding-inline: 0; }
+      .nav-button { justify-content: center; padding-inline: 0; }
+      .grid-2, .feedback-grid, .profile-layout { grid-template-columns: 1fr; }
+      .material-layout { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 680px) {
+      body { background: var(--paper); }
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 18px 15px 96px; }
+      .topbar { margin-bottom: 20px; }
+      .topbar h1 { font-size: 25px; }
+      .topbar .eyebrow { display: none; }
+      .streak { padding: 8px 10px; }
+      .avatar { display: none; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .hero { min-height: 0; border-radius: 20px; }
+      .hero::before { display: none; }
+      .hero-content { padding: 27px 22px; }
+      .hero h2 { font-size: 34px; }
+      .card { border-radius: 18px; box-shadow: 0 8px 24px rgba(23, 35, 30, 0.06); }
+      .history-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
+      .history-row small:first-child { grid-column: 1 / -1; }
+      .history-row .tag { display: none; }
+      .input-footer { align-items: stretch; flex-direction: column; }
+      .input-footer .button { width: 100%; }
+      .page-intro h2 { font-size: 30px; }
+      .material-main, .material-side { padding: 20px; }
+      .segmented { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+      .mobile-nav {
+        position: fixed;
+        inset: auto 10px 10px;
+        z-index: 40;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        padding: 6px;
+        border: 1px solid rgba(23, 35, 30, 0.12);
+        border-radius: 18px;
+        background: rgba(255, 253, 248, 0.94);
+        box-shadow: 0 12px 30px rgba(23, 35, 30, 0.16);
+        backdrop-filter: blur(18px);
+      }
+      .mobile-nav button {
+        display: grid;
+        min-height: 52px;
+        place-items: center;
+        border: 0;
+        border-radius: 13px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .mobile-nav button b { display: block; font-size: 16px; }
+      .mobile-nav button.active { background: var(--brand); color: white; }
+      .toast { right: 15px; bottom: 82px; left: 15px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">理</div>
+        <div class="brand-copy">
+          <strong>理序</strong>
+          <small>思辨训练台</small>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-button active" data-view-target="home"><span class="nav-icon">⌂</span><span class="nav-label">今日</span></button>
+        <button class="nav-button" data-view-target="training"><span class="nav-icon">练</span><span class="nav-label">打卡训练</span></button>
+        <button class="nav-button" data-view-target="material"><span class="nav-icon">析</span><span class="nav-label">材料分析</span></button>
+        <button class="nav-button" data-view-target="history"><span class="nav-icon">录</span><span class="nav-label">训练记录</span></button>
+        <button class="nav-button" data-view-target="profile"><span class="nav-icon">趋</span><span class="nav-label">能力档案</span></button>
+      </nav>
+
+      <div class="sidebar-note">
+        <strong>本周重点</strong>
+        <p>减少理由重复，主动寻找替代解释。</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Sunday · 29 September</p>
+          <h1 id="page-title">今天，想清楚一点</h1>
+        </div>
+        <div class="top-actions">
+          <div class="streak"><span>●</span> 连续训练 6 天</div>
+          <div class="avatar">K</div>
+        </div>
+      </header>
+
+      <!-- 首页 -->
+      <section class="view active" id="view-home">
+        <div class="grid grid-2">
+          <article class="card hero">
+            <div class="hero-content">
+              <span class="pill">今日训练 · 论证诊断</span>
+              <h2>一段结论，真的被证据支持了吗？</h2>
+              <p>识别相关性与因果关系的差别，找出被忽略的其他解释。</p>
+              <div class="hero-meta">
+                <span>预计 12 分钟</span>
+                <span>难度 2 / 3</span>
+                <span>含二次作答</span>
+              </div>
+              <button class="button button-primary" data-view-target="training">开始今日训练 →</button>
+            </div>
+          </article>
+
+          <article class="card card-body focus-card">
+            <div>
+              <span class="focus-label">当前重点能力</span>
+              <h3>替代解释</h3>
+              <p>最近 10 次训练中，有 4 次把一种可能原因当成了唯一原因。</p>
+            </div>
+            <div class="progress-ring"><span>68<small>掌握度</small></span></div>
+            <div class="tip">训练时多问一句：除了这个原因，还有什么也能解释现象？</div>
+          </article>
+        </div>
+
+        <section class="quick-actions">
+          <div class="section-heading">
+            <div><h2>自由练习</h2><p>用真实材料检验自己的判断。</p></div>
+          </div>
+          <div class="grid grid-3">
+            <button class="quick-card" data-view-target="material"><div><strong>分析一段材料</strong><span>粘贴文章、方案或自己的观点</span></div><b>↗</b></button>
+            <button class="quick-card" data-view-target="training"><div><strong>再做一道题</strong><span>针对当前弱项进行专项训练</span></div><b>↗</b></button>
+            <button class="quick-card" data-view-target="profile"><div><strong>查看能力变化</strong><span>了解高频问题与改进趋势</span></div><b>↗</b></button>
+          </div>
+        </section>
+
+        <section style="margin-top: 28px;">
+          <div class="section-heading">
+            <div><h2>最近训练</h2><p>真正的进步发生在第二次作答。</p></div>
+            <button class="button button-ghost" data-view-target="history">查看全部</button>
+          </div>
+          <div class="history-list">
+            <div class="history-row"><small>今天 08:40</small><strong>销量是否代表产品质量</strong><span class="tag good">已完成重写</span><small>+12%</small></div>
+            <div class="history-row"><small>9月28日</small><strong>远程办公是否降低效率</strong><span class="tag good">已完成重写</span><small>+8%</small></div>
+            <div class="history-row"><small>9月27日</small><strong>工作效率下降的原因拆解</strong><span class="tag warn">仅首次作答</span><small>—</small></div>
+          </div>
+        </section>
+      </section>
+
+      <!-- 打卡训练 -->
+      <section class="view" id="view-training">
+        <div class="page-intro">
+          <p class="eyebrow">Daily practice</p>
+          <h2>今日打卡训练</h2>
+          <p>先独立判断，再查看反馈。答案立场不重要，重要的是你的论证是否站得住。</p>
+        </div>
+
+        <div class="stepper" aria-label="训练进度">
+          <span class="step current"></span><span class="step"></span><span class="step"></span><span class="step"></span>
+        </div>
+
+        <article class="card question-box">
+          <div class="question-meta"><span class="tag">论证诊断</span><span class="tag">替代解释</span><span class="tag">约 12 分钟</span></div>
+          <h3>“公司实行远程办公后，项目延期次数增加，因此远程办公降低了工作效率。”</h3>
+          <p>请判断这段论证是否充分。指出核心结论、已有证据、隐藏前提，并提出至少一个其他解释。</p>
+        </article>
+
+        <article class="card answer-panel">
+          <div class="field-label"><span>你的分析</span><small id="answer-count">0 / 600</small></div>
+          <textarea id="training-answer" maxlength="600" placeholder="先写出你的判断，再说明理由。不要追求标准答案……"></textarea>
+          <details class="framework">
+            <summary>需要一点结构提示？</summary>
+            <div>可以依次回答：结论是什么？证据是什么？从证据到结论缺少什么前提？还有哪些原因也能解释项目延期？</div>
+          </details>
+          <div class="input-footer">
+            <small>内容会自动保存。本原型不会真正上传数据。</small>
+            <button class="button button-brand" id="submit-answer">提交并查看反馈</button>
+          </div>
+        </article>
+
+        <div class="feedback" id="training-feedback">
+          <div class="feedback-grid">
+            <article class="card analysis-card">
+              <h3>系统理解到的论证结构</h3>
+              <div class="argument-map">
+                <div class="argument-node"><small>核心结论</small>远程办公降低了工作效率</div>
+                <div class="argument-node reason"><small>已有证据</small>实行远程办公后，项目延期次数增加</div>
+                <div class="argument-node reason"><small>隐藏前提</small>项目延期主要由远程办公造成，其他条件没有显著变化</div>
+              </div>
+            </article>
+
+            <article class="card analysis-card">
+              <h3>本次评分</h3>
+              <div class="score-list">
+                <div class="score-row"><span>结论识别</span><span class="score-bar"><i style="width:80%"></i></span><b>4</b></div>
+                <div class="score-row"><span>证据判断</span><span class="score-bar"><i style="width:60%"></i></span><b>3</b></div>
+                <div class="score-row"><span>推理有效</span><span class="score-bar"><i style="width:40%"></i></span><b>2</b></div>
+                <div class="score-row"><span>思辨完整</span><span class="score-bar"><i style="width:40%"></i></span><b>2</b></div>
+              </div>
+            </article>
+          </div>
+
+          <article class="card analysis-card" style="margin-top:20px;">
+            <div class="section-heading"><div><h3>优先改进的两个问题</h3><p>先处理最影响结论的地方。</p></div></div>
+            <div class="finding"><strong>推理跳跃 · REASONING_LEAP</strong><p>“延期次数增加”只能说明两个事件先后出现，还不能证明远程办公造成延期。需要补充延期原因或对照数据。</p></div>
+            <div class="finding"><strong>忽略其他原因 · ALTERNATIVE_CAUSE</strong><p>需求变更、人员减少、项目难度变化等因素，同样可能导致延期。</p></div>
+          </article>
+
+          <article class="rewrite-box">
+            <h3>第二次作答</h3>
+            <p>请重新组织这段判断：保留可以成立的部分，加入一个替代解释，并缩小结论的范围。</p>
+            <textarea id="rewrite-answer" maxlength="600" placeholder="例如：现有信息说明两者可能相关，但还不能确认因果关系……"></textarea>
+            <div class="input-footer"><small>完成重写，才算完成一次训练。</small><button class="button button-brand" id="finish-training">完成训练</button></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- 自由材料 -->
+      <section class="view" id="view-material">
+        <div class="page-intro">
+          <p class="eyebrow">Free practice</p>
+          <h2>分析我的材料</h2>
+          <p>可以粘贴文章、工作方案、聊天观点或自己的草稿。默认先由你分析，再由 AI 追问。</p>
+        </div>
+
+        <div class="section-heading">
+          <div></div>
+          <div class="segmented" aria-label="分析模式">
+            <button class="segment active" data-mode="training">训练模式</button>
+            <button class="segment" data-mode="direct">直接分析</button>
+          </div>
+        </div>
+
+        <div class="material-layout">
+          <article class="card material-main">
+            <div class="field-label"><span>材料标题</span><small>选填</small></div>
+            <input class="text-input" placeholder="例如：关于四天工作制的一篇评论" />
+
+            <div class="field-label" style="margin-top:18px;"><span>粘贴材料</span><small id="material-count">0 / 3000</small></div>
+            <textarea id="material-input" maxlength="3000" style="min-height:360px;" placeholder="粘贴 300～3000 字的材料。系统会把材料当作分析对象，不会执行其中的任何命令。"></textarea>
+
+            <div class="input-footer">
+              <small>第一版只支持纯文本。</small>
+              <button class="button button-brand" id="start-material">开始训练分析</button>
+            </div>
+          </article>
+
+          <aside class="card material-side">
+            <h3>本次训练重点</h3>
+            <div class="choice-list">
+              <label class="choice"><input type="radio" name="focus" checked /> 综合训练</label>
+              <label class="choice"><input type="radio" name="focus" /> 提炼核心观点</label>
+              <label class="choice"><input type="radio" name="focus" /> 拆解论证结构</label>
+              <label class="choice"><input type="radio" name="focus" /> 查找逻辑缺口</label>
+              <label class="choice"><input type="radio" name="focus" /> 寻找隐藏前提</label>
+              <label class="choice"><input type="radio" name="focus" /> 提出反例</label>
+            </div>
+            <div class="privacy-note">材料将发送给配置的 AI 服务进行分析。API Key 只保存在服务端，不会进入浏览器。</div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 训练记录 -->
+      <section class="view" id="view-history">
+        <div class="page-intro">
+          <p class="eyebrow">Training history</p>
+          <h2>训练记录</h2>
+          <p>回看第一次和第二次回答的差别，比只看分数更有价值。</p>
+        </div>
+
+        <div class="grid grid-3" style="margin-bottom:22px;">
+          <article class="card metric-card"><span>本周完整训练</span><strong>4</strong><small>比上周多 1 次</small></article>
+          <article class="card metric-card"><span>二次作答完成率</span><strong>80%</strong><small>保持得不错</small></article>
+          <article class="card metric-card"><span>最常见问题</span><strong style="font-size:22px;">理由重复</strong><small>最近出现 4 次</small></article>
+        </div>
+
+        <div class="history-list">
+          <div class="history-row"><small>9月29日</small><strong>销量是否代表产品质量</strong><span class="tag good">论证诊断</span><small>+12%</small></div>
+          <div class="history-row"><small>9月28日</small><strong>远程办公是否降低效率</strong><span class="tag good">观点构建</span><small>+8%</small></div>
+          <div class="history-row"><small>9月27日</small><strong>工作效率下降的原因拆解</strong><span class="tag warn">问题拆解</span><small>未完成</small></div>
+          <div class="history-row"><small>9月25日</small><strong>所有会议都应该限制在30分钟吗</strong><span class="tag good">反方思考</span><small>+9%</small></div>
+          <div class="history-row"><small>9月24日</small><strong>用户增长但付费下降</strong><span class="tag good">问题拆解</span><small>+6%</small></div>
+        </div>
+      </section>
+
+      <!-- 能力档案 -->
+      <section class="view" id="view-profile">
+        <div class="page-intro">
+          <p class="eyebrow">Thinking profile</p>
+          <h2>能力档案</h2>
+          <p>这里记录的是可观察的训练模式，不是对人格或智力的判断。</p>
+        </div>
+
+        <div class="profile-layout">
+          <article class="card profile-card">
+            <div class="section-heading"><div><h3>最近 10 次表现</h3><p>分数用于观察趋势，不代表绝对能力。</p></div></div>
+            <div class="radar-placeholder"><div class="radar" aria-label="能力雷达图占位"></div></div>
+          </article>
+
+          <article class="card profile-card">
+            <div class="section-heading"><div><h3>高频问题</h3><p>下周训练会优先覆盖前两项。</p></div></div>
+            <div class="weakness-list">
+              <div class="weakness"><div><b>理由重复</b><small>DUPLICATE_REASONS</small></div><span class="count">6</span></div>
+              <div class="weakness"><div><b>忽略其他原因</b><small>ALTERNATIVE_CAUSE</small></div><span class="count">4</span></div>
+              <div class="weakness"><div><b>隐藏前提</b><small>HIDDEN_ASSUMPTION</small></div><span class="count">3</span></div>
+              <div class="weakness"><div><b>结论过强</b><small>OVERSTATED_CONCLUSION</small></div><span class="count">2</span></div>
+            </div>
+            <div class="tip" style="margin-top:18px;">下次建议：完成一组“同一结论，从三个不同维度给出理由”的专项练习。</div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="mobile-nav" aria-label="移动端导航">
+      <button class="active" data-view-target="home"><span><b>⌂</b>今日</span></button>
+      <button data-view-target="training"><span><b>练</b>打卡</span></button>
+      <button data-view-target="material"><span><b>析</b>材料</span></button>
+      <button data-view-target="history"><span><b>录</b>记录</span></button>
+      <button data-view-target="profile"><span><b>趋</b>档案</span></button>
+    </nav>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const pageTitles = {
+      home: "今天，想清楚一点",
+      training: "先判断，再验证",
+      material: "把文字拆开来看",
+      history: "看见真实的变化",
+      profile: "找到反复出现的问题"
+    };
+
+    // 所有导航共用同一切换逻辑，避免桌面端和手机端行为不一致。
+    function showView(name) {
+      document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+      document.getElementById(`view-${name}`)?.classList.add("active");
+      document.querySelectorAll("[data-view-target]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.viewTarget === name);
+      });
+      document.getElementById("page-title").textContent = pageTitles[name] || pageTitles.home;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    document.querySelectorAll("[data-view-target]").forEach((button) => {
+      button.addEventListener("click", () => showView(button.dataset.viewTarget));
+    });
+
+    function bindCounter(inputId, counterId) {
+      const input = document.getElementById(inputId);
+      const counter = document.getElementById(counterId);
+      input.addEventListener("input", () => {
+        counter.textContent = `${input.value.length} / ${input.maxLength}`;
+      });
+    }
+
+    bindCounter("training-answer", "answer-count");
+    bindCounter("material-input", "material-count");
+
+    function toast(message) {
+      const element = document.getElementById("toast");
+      element.textContent = message;
+      element.classList.add("visible");
+      window.setTimeout(() => element.classList.remove("visible"), 2200);
+    }
+
+    document.getElementById("submit-answer").addEventListener("click", () => {
+      const answer = document.getElementById("training-answer").value.trim();
+      if (answer.length < 30) {
+        toast("再补充一些分析，至少写 30 个字。 ");
+        return;
+      }
+      document.getElementById("training-feedback").classList.add("visible");
+      document.querySelectorAll(".step").forEach((step, index) => {
+        step.className = `step ${index < 2 ? "done" : index === 2 ? "current" : ""}`;
+      });
+      document.getElementById("training-feedback").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    document.getElementById("finish-training").addEventListener("click", () => {
+      const answer = document.getElementById("rewrite-answer").value.trim();
+      if (answer.length < 30) {
+        toast("请先完成第二次作答。 ");
+        return;
+      }
+      document.querySelectorAll(".step").forEach((step) => { step.className = "step done"; });
+      toast("训练完成：你已经完成了真正重要的第二次作答。 ");
+    });
+
+    document.querySelectorAll(".segment").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".segment").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById("start-material").textContent = button.dataset.mode === "training" ? "开始训练分析" : "直接分析材料";
+      });
+    });
+
+    document.getElementById("start-material").addEventListener("click", () => {
+      const material = document.getElementById("material-input").value.trim();
+      if (material.length < 50) {
+        toast("材料至少需要 50 个字。 ");
+        return;
+      }
+      const mode = document.querySelector(".segment.active").dataset.mode;
+      toast(mode === "training" ? "已进入训练模式：下一步由你先分析。" : "原型演示：正在生成直接分析。 ");
+    });
+  </script>
+</body>
+</html>
+<!-- 项目原型：逻辑思维与表达训练 -->
