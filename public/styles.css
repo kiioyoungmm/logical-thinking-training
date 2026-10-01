@@ -210,6 +210,7 @@ textarea { display: block; padding: 16px; resize: vertical; }
 .issue-card { margin-bottom: 10px; padding: 14px; border-radius: 12px; background: #f5eee7; }
 .issue-card strong, .issue-card span { display: block; }
 .issue-card span { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.issue-tag { display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 99px; color: var(--green); background: var(--green-soft); font-size: 11px; font-weight: 600; }
 .rewrite-box { display: flex; margin-top: 24px; padding: 20px; border-radius: 14px; background: var(--green-soft); align-items: center; justify-content: space-between; gap: 20px; }
 .rewrite-box p { margin: 4px 0 0; }
 
@@ -231,6 +232,12 @@ textarea { display: block; padding: 16px; resize: vertical; }
 .analysis-block ul { padding-left: 20px; }
 
 .record-list { display: grid; gap: 12px; }
+.weekly-review { margin-bottom: 18px; }
+.weekly-review h3 { margin: 0 0 8px; font: 500 23px Georgia, "Songti SC", serif; }
+.weekly-review p { margin: 0 0 12px; color: var(--muted); }
+.weekly-review ol { margin: 8px 0 0; padding-left: 22px; }
+.weekly-review li { padding: 3px 0; }
+.weekly-review li span { color: var(--muted); }
 .empty-state { padding: 64px 24px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); text-align: center; }
 .empty-state strong { display: block; margin-bottom: 5px; color: var(--ink); font: 500 22px Georgia, "Songti SC", serif; }
 .record-card { display: grid; padding: 20px 24px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper-strong); grid-template-columns: 90px 1fr auto; align-items: center; gap: 18px; }
@@ -238,6 +245,11 @@ textarea { display: block; padding: 16px; resize: vertical; }
 .record-card h3, .record-card p { margin: 0; }
 .record-card h3 { font-size: 16px; }
 .record-score { font: 500 24px Georgia, serif; }
+.record-detail { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--line); }
+.record-detail summary { width: fit-content; color: var(--green); cursor: pointer; font-weight: 700; }
+.record-detail h4 { margin: 16px 0 5px; }
+.record-detail .record-answer { white-space: pre-wrap; color: var(--ink); font-size: 14px; }
+.record-detail .record-tags, .record-detail .record-comparison { margin-top: 12px; color: var(--muted); }
 
 .profile-grid { display: grid; gap: 18px; grid-template-columns: 1.3fr .7fr; }
 .paper-card h3 { margin-top: 0; }
@@ -258,6 +270,8 @@ textarea { display: block; padding: 16px; resize: vertical; }
 .settings-card input { min-width: 0; padding: 13px 14px; }
 .privacy-note { color: var(--muted); font-size: 13px; }
 .settings-card .action-row { margin-top: 28px; }
+.backup-card { margin-top: 18px; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
 .mobile-nav { display: none; }
 .toast { position: fixed; right: 28px; bottom: 28px; z-index: 30; max-width: min(380px, calc(100vw - 32px)); padding: 12px 18px; color: white; border-radius: 10px; background: var(--ink); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transform: translateY(10px); transition: .22s ease; }

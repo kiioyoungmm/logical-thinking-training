@@ -103,6 +103,7 @@
 
         <section class="view" id="view-records">
           <div class="section-heading"><div><p class="eyebrow">PRACTICE HISTORY</p><h2>训练记录</h2><p>回看进步，也回看反复出现的问题。</p></div><button class="outline-button" id="clear-records">清空记录</button></div>
+          <article class="paper-card weekly-review" id="weekly-review"></article>
           <div id="record-list" class="record-list"></div>
         </section>
 
@@ -117,11 +118,17 @@
         <section class="view" id="view-settings">
           <div class="section-heading"><div><p class="eyebrow">AI SETTINGS</p><h2>模型设置</h2><p>当前仅支持 DeepSeek，后续可扩展其他模型。</p></div></div>
           <article class="paper-card settings-card">
-            <div class="status-row"><div><strong>DeepSeek</strong><p>deepseek-flash</p></div><span class="status-dot" id="key-status">未配置</span></div>
+            <div class="status-row"><div><strong>DeepSeek</strong><p id="model-name">deepseek-flash</p></div><span class="status-dot" id="key-status">未配置</span></div>
             <label for="api-key">API Key</label>
             <div class="key-input"><input id="api-key" type="password" autocomplete="off" placeholder="sk-……" /><button id="toggle-key" class="outline-button">显示</button></div>
             <p class="privacy-note">为降低泄露风险，网页填写的 Key 仅保存在当前浏览器会话中，关闭浏览器后自动清除。也可以在服务器环境变量中配置。</p>
             <div class="action-row"><button class="text-button danger" id="clear-key">清除</button><button class="primary-button" id="save-key">保存设置</button></div>
+          </article>
+          <article class="paper-card settings-card backup-card">
+            <h3>训练数据备份</h3>
+            <p class="privacy-note">导出训练记录和选题历史为 JSON 文件，不包含 API Key。恢复备份会覆盖当前浏览器中的训练数据。</p>
+            <div class="backup-actions"><button class="outline-button" id="export-data">导出备份</button><button class="outline-button" id="import-data">恢复备份</button></div>
+            <input class="hidden" id="backup-file" type="file" accept=".json,application/json" />
           </article>
         </section>
       </main>
@@ -132,6 +139,7 @@
     </div>
     <div class="toast" id="toast" role="status"></div>
     <script src="/question-selection.js"></script>
+    <script src="/review.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

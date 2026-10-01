@@ -203,7 +203,7 @@ function renderCheckinFeedback(rawFeedback) {
   `).join("");
   const strengths = feedback.strengths.map((item) => `<li>${escapeHtml(item)}</li>`).join("") || "<li>本次暂无明确优势项。</li>";
   const issues = feedback.issues.map((item) => `
-    <div class="issue-card"><strong>${escapeHtml(item.type || "需要留意")}</strong>${item.quote ? `<em>“${escapeHtml(item.quote)}”</em>` : ""}<span>${escapeHtml(item.explanation || "")}</span></div>
+    <div class="issue-card"><strong>${escapeHtml(item.type || "需要留意")}${ISSUE_TAGS.includes(item.tag) ? `<small class="issue-tag">${escapeHtml(item.tag)}</small>` : ""}</strong>${item.quote ? `<em>“${escapeHtml(item.quote)}”</em>` : ""}<span>${escapeHtml(item.explanation || "")}</span></div>
   `).join("") || "<p>暂未发现明显结构问题。</p>";
   const suggestions = feedback.suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
   const actionText = state.attempt === 1 ? "根据反馈再写一次" : "完成训练，查看记录";
@@ -285,6 +285,10 @@ async function submitCheckin() {
         score: normalized.total,
         scores: normalized.scores,
         summary: normalized.summary,
+        firstAnswer: state.firstAnswer,
+        secondAnswer: answer,
+        firstFeedback: state.firstFeedback,
+        secondFeedback: normalized,
         meta: feedback.meta,
         firstMeta: state.firstFeedback?.meta,
       };
@@ -369,7 +373,7 @@ async function analyzeMaterial() {
   try {
     const result = await callAi("material", { material, mode: state.materialMode, userClaim, userEvidence }, controller.signal);
     renderMaterialResult(result);
-    const record = { type: "material", title: result.topic || material.slice(0, 36), summary: result.feedback || "已完成材料分析", meta: result.meta };
+    const record = { type: "material", title: result.topic || material.slice(0, 36), summary: result.feedback || "已完成材料分析", material, userClaim, userEvidence, analysis: result, meta: result.meta };
     if (state.materialRecordId) state.materialRecordId = updateRecord(state.materialRecordId, record);
     else state.materialRecordId = addRecord(record);
   } catch (error) {
@@ -447,6 +451,7 @@ function renderHome() {
 }
 
 function renderRecords() {
+  renderWeeklyReview();
   const list = $("#record-list");
   if (!store.records.length) {
     list.innerHTML = '<div class="empty-state"><strong>还没有训练记录</strong>完成一次打卡或材料分析后，记录会出现在这里。</div>';
@@ -455,8 +460,33 @@ function renderRecords() {
   list.innerHTML = store.records.map((record) => {
     const date = new Date(record.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
     const score = hasVerifiedScores(record) ? record.score : record.type === "material" ? "分析" : "未核验";
-    return `<article class="record-card"><time>${escapeHtml(date)}</time><div><h3>${escapeHtml(record.title)}</h3><p>${escapeHtml(record.summary || "已完成训练")}</p></div><span class="record-score">${score}</span></article>`;
+    const tags = [...new Set([...getIssueTags(record.firstFeedback), ...getIssueTags(record.secondFeedback)])];
+    const detail = record.type === "checkin" && record.firstAnswer && record.secondAnswer ? `
+      <details class="record-detail"><summary>查看初答与改写${record.firstFeedback?.total != null ? ` · ${escapeHtml(record.firstFeedback.total)} → ${escapeHtml(record.score)} 分` : ""}</summary>
+        ${tags.length ? `<p class="record-tags">问题标签：${tags.map(escapeHtml).join(" · ")}</p>` : ""}
+        <h4>第一次作答</h4><p class="record-answer">${escapeHtml(record.firstAnswer)}</p>
+        <h4>第二次作答</h4><p class="record-answer">${escapeHtml(record.secondAnswer)}</p>
+        ${record.secondFeedback?.comparison ? `<p class="record-comparison">${escapeHtml(record.secondFeedback.comparison)}</p>` : ""}
+      </details>` : record.type === "material" && record.material ? `
+      <details class="record-detail"><summary>查看分析材料</summary><p class="record-answer">${escapeHtml(record.material)}</p></details>` : "";
+    return `<article class="record-card"><time>${escapeHtml(date)}</time><div><h3>${escapeHtml(record.title)}</h3><p>${escapeHtml(record.summary || "已完成训练")}</p></div><span class="record-score">${escapeHtml(score)}</span>${detail}</article>`;
   }).join("");
+}
+
+function renderWeeklyReview() {
+  const review = buildWeeklyReview(store.records);
+  const panel = $("#weekly-review");
+  if (!review.sessions) {
+    panel.innerHTML = "<h3>最近 7 天</h3><p>完成一次双轮打卡后，这里会总结进步和反复出现的问题。</p>";
+    return;
+  }
+  const progress = review.compared
+    ? `完成 ${review.sessions} 次打卡；有初答记录的 ${review.compared} 次平均提升 ${review.averageGain >= 0 ? "+" : ""}${review.averageGain} 分${review.mostImproved ? `，进步最多的是“${scoreLabels[review.mostImproved]}”` : ""}。`
+    : `完成 ${review.sessions} 次打卡。旧记录未保存初答，暂时无法计算改写进步。`;
+  const problems = review.topTags.length
+    ? review.topTags.map(([tag, count]) => `<li>${escapeHtml(tag)} <span>${count} 次</span></li>`).join("")
+    : "<li>暂无可统计的问题标签，新完成的训练会逐步积累。</li>";
+  panel.innerHTML = `<h3>最近 7 天</h3><p>${progress}</p><strong>最常出现的三个问题</strong><ol>${problems}</ol>`;
 }
 
 function renderProfile() {
@@ -469,8 +499,11 @@ function renderProfile() {
     return;
   }
   const weakest = Object.keys(averages).sort((a, b) => averages[a] - averages[b])[0];
+  const topTag = buildWeeklyReview(store.records).topTags[0]?.[0];
   $("#profile-focus").textContent = `下一阶段：${scoreLabels[weakest]}`;
-  $("#profile-advice").textContent = `当前“${scoreLabels[weakest]}”平均得分最低。接下来三次训练优先改善这一项，不必同时解决所有问题。`;
+  $("#profile-advice").textContent = topTag
+    ? `最近的记录提示“${topTag}”，当前“${scoreLabels[weakest]}”平均得分最低。接下来三次训练优先检查这两点。`
+    : `当前“${scoreLabels[weakest]}”平均得分最低。接下来三次训练优先改善这一项，不必同时解决所有问题。`;
 }
 
 function renderKeyStatus() {
@@ -479,6 +512,45 @@ function renderKeyStatus() {
   status.textContent = ready ? (sessionStorage.getItem(SESSION_KEY) ? "会话中已配置" : "服务器已配置") : state.serverHasKey === null ? "无法检测服务" : "未配置";
   status.classList.toggle("ready", ready);
   $("#api-key").value = sessionStorage.getItem(SESSION_KEY) || "";
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(createBackup(store), null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `理序训练备份-${getLocalDateKey()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  showToast("备份已下载，请妥善保存");
+}
+
+async function importData(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    if (file.size > 5 * 1024 * 1024) throw new Error("备份文件不能超过 5 MB");
+    const restored = parseBackup(await file.text());
+    if (!window.confirm(`将用备份中的 ${restored.records.length} 条记录覆盖当前数据。建议先导出当前备份。确定继续吗？`)) return;
+    // 先写入新数据，成功后再替换内存；写入失败时保留原记录。
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(restored));
+    Object.values(activeRequests).forEach((controller) => controller?.abort());
+    store.records = restored.records;
+    store.questionHistory = restored.questionHistory;
+    state.materialRecordId = null;
+    chooseQuestion();
+    resetCheckin();
+    renderQuestion();
+    renderHome();
+    renderRecords();
+    renderProfile();
+    showToast("备份已恢复");
+  } catch (error) {
+    showToast(`恢复失败：${error.message}`);
+  }
 }
 
 function bindEvents() {
@@ -529,6 +601,9 @@ function bindEvents() {
     input.type = input.type === "password" ? "text" : "password";
     $("#toggle-key").textContent = input.type === "password" ? "显示" : "隐藏";
   });
+  $("#export-data").addEventListener("click", exportData);
+  $("#import-data").addEventListener("click", () => $("#backup-file").click());
+  $("#backup-file").addEventListener("change", importData);
   $("#clear-records").addEventListener("click", () => {
     if (!store.records.length) return showToast("当前没有训练记录");
     if (!window.confirm("确定清空全部训练记录吗？此操作无法恢复。")) return;
@@ -536,6 +611,7 @@ function bindEvents() {
     saveStore();
     renderRecords();
     renderHome();
+    renderProfile();
     showToast("训练记录已清空");
   });
 

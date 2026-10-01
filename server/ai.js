@@ -1,5 +1,5 @@
 const DeepSeekProvider = require("./providers/deepseek");
-const { buildCheckinPrompt, buildVariantPrompt, CHECKIN_PROMPT_VERSION, VARIANT_PROMPT_VERSION, SCORE_RUBRIC_VERSION } = require("./skills/checkin");
+const { buildCheckinPrompt, buildVariantPrompt, CHECKIN_PROMPT_VERSION, VARIANT_PROMPT_VERSION, SCORE_RUBRIC_VERSION, ISSUE_TAGS } = require("./skills/checkin");
 const { buildMaterialPrompt, MATERIAL_PROMPT_VERSION } = require("./skills/material");
 const { loadQuestions } = require("./question-bank");
 
@@ -24,6 +24,7 @@ function validateResult(type, result) {
     result.strengths = Array.isArray(result.strengths) ? result.strengths : [];
     result.issues = Array.isArray(result.issues) ? result.issues : [];
     if (result.issues.some((issue) => !issue || typeof issue !== "object" || (issue.quote !== undefined && typeof issue.quote !== "string"))) throwInvalidResult();
+    result.issues.forEach((issue) => { issue.tag = ISSUE_TAGS.includes(issue.tag) ? issue.tag : ""; });
     result.suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
   } else if (typeof result.claim !== "string" || !Array.isArray(result.structure)) {
     throwInvalidResult();

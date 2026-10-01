@@ -6,9 +6,10 @@ const SCORE_RULES = `
 4. 推理：论据能否支持结论，是否存在跳跃；
 5. 表达：语言是否简洁、准确、易懂。
 `;
-const CHECKIN_PROMPT_VERSION = "1.2.1";
+const CHECKIN_PROMPT_VERSION = "1.3.0";
 const VARIANT_PROMPT_VERSION = "1.2.1";
 const SCORE_RUBRIC_VERSION = "1.0.0";
+const ISSUE_TAGS = ["结论模糊", "论据不足", "因果跳跃", "分类重叠", "缺少边界", "表达冗余"];
 
 function buildCheckinPrompt(payload) {
   const isRewrite = Boolean(payload.previousAnswer);
@@ -33,12 +34,12 @@ ${SCORE_RULES}
   "scores": {"claim":0,"evidence":0,"structure":0,"reasoning":0,"expression":0},
   "summary": "一句话总体评价",
   "strengths": ["最多两点"],
-  "issues": [{"type":"问题类型","quote":"对应原文","explanation":"为什么是问题"}],
+  "issues": [{"type":"问题类型","tag":"统一问题标签","quote":"对应原文","explanation":"为什么是问题"}],
   "suggestions": ["最多三条、可以立即执行的建议"],
   "rewriteTask": "下一次改写只需重点完成的一件事",
   "comparison": "若为第二次作答，说明进步与仍需改进之处，否则为空字符串"
 }
-总分必须等于五个维度之和。issues.quote 只能复制用户本次作答中的连续原文，不能引用题目材料或第一次作答；若无法定位到本次作答，quote 留空。不要因为用户没有复述材料中的某个细节就凭空判错。不要输出参考答案。`,
+总分必须等于五个维度之和。issues.tag 仅从“${ISSUE_TAGS.join("、")}”中选最贴近的一项；若确实不适用，填空字符串，不要硬套标签。issues.quote 只能复制用户本次作答中的连续原文，不能引用题目材料或第一次作答；若无法定位到本次作答，quote 留空。不要因为用户没有复述材料中的某个细节就凭空判错。不要输出参考答案。`,
     },
     { role: "user", content: userContent },
   ];
@@ -51,4 +52,4 @@ function buildVariantPrompt(question) {
   ];
 }
 
-module.exports = { buildCheckinPrompt, buildVariantPrompt, CHECKIN_PROMPT_VERSION, VARIANT_PROMPT_VERSION, SCORE_RUBRIC_VERSION };
+module.exports = { buildCheckinPrompt, buildVariantPrompt, CHECKIN_PROMPT_VERSION, VARIANT_PROMPT_VERSION, SCORE_RUBRIC_VERSION, ISSUE_TAGS };
