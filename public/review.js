@@ -51,6 +51,7 @@ function parseBackup(text) {
     && (item.summary === undefined || typeof item.summary === "string")
     && (item.score === undefined || Number.isFinite(item.score))
     && (item.scores === undefined || validScores(item.scores))
+    && (item.mode !== "oral" || ([item.oral?.first, item.oral?.second].every((round) => round && Number.isFinite(round.duration) && round.duration > 0 && round.duration <= 120 && typeof round.selfReview === "string")))
     && validFeedback(item.firstFeedback) && validFeedback(item.secondFeedback);
   const validHistory = (item) => item && typeof item.id === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date);
   if (!data.records.every(validRecord) || !data.questionHistory.every(validHistory)) throw new Error("备份中的记录格式不正确");

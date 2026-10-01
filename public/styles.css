@@ -27,7 +27,7 @@ body {
   line-height: 1.6;
 }
 
-button, textarea, input { font: inherit; }
+button, textarea, input, select { font: inherit; }
 button { color: inherit; }
 button:focus-visible, textarea:focus-visible, input:focus-visible {
   outline: 3px solid rgba(49, 95, 77, 0.22);
@@ -169,6 +169,7 @@ button:focus-visible, textarea:focus-visible, input:focus-visible {
 .choice-card b { font-size: 13px; }
 
 .training-layout { display: grid; gap: 18px; grid-template-columns: .85fr 1.15fr; align-items: start; }
+.checkin-mode { width: fit-content; margin-bottom: 18px; }
 .paper-card { padding: clamp(22px, 3vw, 34px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper-strong); box-shadow: var(--shadow); }
 .card-meta, .card-title-row, .editor-footer, .action-row, .status-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .card-meta { flex-wrap: wrap; color: var(--muted); font-size: 12px; }
@@ -187,6 +188,15 @@ button:focus-visible, textarea:focus-visible, input:focus-visible {
 }
 textarea { display: block; padding: 16px; resize: vertical; }
 .answer-card textarea { min-height: 310px; margin: 20px 0 12px; }
+.answer-card .oral-panel { margin-top: 20px; padding: 18px; border-radius: 14px; background: #f3f0e7; }
+.oral-panel > p, .oral-panel > small { margin: 0; color: var(--muted); font-size: 13px; }
+.oral-controls, .oral-playback { display: flex; margin-top: 16px; align-items: center; flex-wrap: wrap; gap: 10px; }
+.oral-controls select { min-height: 40px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-strong); }
+.oral-controls strong { color: var(--green); font-size: 13px; }
+.oral-playback audio { width: min(100%, 330px); }
+.oral-panel > label, .answer-label { display: block; margin-top: 18px; font-weight: 700; }
+.oral-panel textarea { min-height: 95px; margin: 8px 0; }
+.answer-card .answer-label + textarea { margin-top: 8px; }
 .card-title-row h2 { margin: 4px 0 0; font: 500 27px Georgia, "Songti SC", serif; }
 .step-badge { display: grid; width: 54px; height: 54px; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); font-size: 12px; place-items: center; }
 .editor-footer { color: var(--muted); font-size: 12px; }
@@ -244,6 +254,7 @@ textarea { display: block; padding: 16px; resize: vertical; }
 .record-card time, .record-card p { color: var(--muted); font-size: 13px; }
 .record-card h3, .record-card p { margin: 0; }
 .record-card h3 { font-size: 16px; }
+.record-mode { margin-left: 8px; padding: 2px 6px; border-radius: 6px; color: var(--green); background: var(--green-soft); font-size: 11px; }
 .record-score { font: 500 24px Georgia, serif; }
 .record-detail { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--line); }
 .record-detail summary { width: fit-content; color: var(--green); cursor: pointer; font-weight: 700; }
@@ -302,6 +313,8 @@ textarea { display: block; padding: 16px; resize: vertical; }
   .split-heading { margin-top: 0; }
   .segmented { width: 100%; }
   .segmented button { flex: 1; }
+  .checkin-mode { margin-top: 0; }
+  .oral-playback audio { width: 100%; }
   .score-grid { grid-template-columns: repeat(2, 1fr); }
   .score-item:last-child { grid-column: 1 / -1; }
   .score-head { align-items: flex-start; }

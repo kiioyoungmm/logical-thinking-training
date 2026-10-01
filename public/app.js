@@ -26,6 +26,8 @@ const state = {
   attempt: 1,
   firstAnswer: "",
   firstFeedback: null,
+  checkinMode: "text",
+  oralClips: { first: null, second: null },
   materialMode: "training",
   serverHasKey: null,
   completedRecordId: null,
@@ -35,6 +37,9 @@ const state = {
 const store = loadStore();
 let toastTimer;
 const activeRequests = { checkin: null, material: null, variant: null };
+let recordingToken = 0;
+let recordingPending = false;
+let currentRecording = null;
 
 function $(selector) {
   return document.querySelector(selector);
@@ -92,6 +97,10 @@ function setButtonLoading(button, loading, loadingText = "处理中……") {
 
 function navigate(view) {
   if (!viewMeta[view]) return;
+  if (view !== "checkin") {
+    if (recordingPending || currentRecording) cancelRecording();
+    ["#oral-audio", "#oral-first-audio"].forEach((selector) => $(selector).pause());
+  }
   $all(".view").forEach((item) => item.classList.toggle("active", item.id === `view-${view}`));
   $all("[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
   $("#page-eyebrow").textContent = viewMeta[view][0];
@@ -139,6 +148,7 @@ function renderQuestion() {
 }
 
 function resetCheckin() {
+  clearOralClips();
   state.attempt = 1;
   state.firstAnswer = "";
   state.firstFeedback = null;
@@ -149,6 +159,131 @@ function resetCheckin() {
   $("#checkin-count").textContent = "0";
   $("#checkin-feedback").classList.add("hidden");
   $("#submit-checkin").textContent = "提交并获取反馈";
+  renderOralPanel();
+}
+
+function stopTracks(stream) {
+  stream?.getTracks().forEach((track) => track.stop());
+}
+
+function cancelRecording() {
+  recordingToken += 1;
+  recordingPending = false;
+  const active = currentRecording;
+  currentRecording = null;
+  if (active) {
+    clearInterval(active.timer);
+    active.recorder.onstop = null;
+    try { if (active.recorder.state !== "inactive") active.recorder.stop(); } catch { /* 设备已断开时仍释放麦克风。 */ }
+    stopTracks(active.stream);
+  }
+  renderOralPanel();
+}
+
+function clearOralClips() {
+  cancelRecording();
+  ["#oral-audio", "#oral-first-audio"].forEach((selector) => {
+    const player = $(selector);
+    player.pause();
+    player.removeAttribute("src");
+    player.load();
+  });
+  Object.values(state.oralClips).forEach((clip) => { if (clip) URL.revokeObjectURL(clip.url); });
+  state.oralClips = { first: null, second: null };
+}
+
+function renderOralPanel() {
+  const oral = state.checkinMode === "oral";
+  $("#oral-panel").classList.toggle("hidden", !oral);
+  $("#answer-label").textContent = oral ? "手动整理刚才说的话（AI 仅评价下方文字）" : "写下你的回答";
+  $all("[data-checkin-mode]").forEach((button) => button.classList.toggle("active", button.dataset.checkinMode === state.checkinMode));
+  $("#checkin-answer").placeholder = oral ? "请手动写下刚才说的内容，再获取 AI 反馈……" : "先用一句话写出结论，再给出 2～3 个理由……";
+  if (!oral) return;
+  const round = state.attempt === 1 ? "first" : "second";
+  const clip = state.oralClips[round];
+  const player = $("#oral-audio");
+  $("#oral-playback").classList.toggle("hidden", !clip);
+  if (clip && player.getAttribute("src") !== clip.url) player.src = clip.url;
+  if (!clip && player.getAttribute("src")) { player.pause(); player.removeAttribute("src"); player.load(); }
+  if (clip) {
+    $("#oral-download").href = clip.url;
+    $("#oral-download").download = `理序-${round === "first" ? "初答" : "改写"}-${getLocalDateKey()}.${audioExtension(clip.type)}`;
+  }
+  const first = state.attempt === 2 ? state.oralClips.first : null;
+  $("#oral-first-playback").classList.toggle("hidden", !first);
+  if (first && $("#oral-first-audio").getAttribute("src") !== first.url) $("#oral-first-audio").src = first.url;
+  $("#oral-self-review").value = clip?.selfReview || "";
+  $("#start-recording").disabled = recordingPending || Boolean(currentRecording);
+  $("#stop-recording").classList.toggle("hidden", !currentRecording);
+  $("#stop-recording").disabled = Boolean(currentRecording?.stopping);
+  $("#oral-duration").disabled = recordingPending || Boolean(currentRecording);
+  $("#oral-status").textContent = recordingPending ? "等待麦克风权限……" : currentRecording ? `剩余 ${formatSeconds(currentRecording.limit)}` : clip ? `已录制 ${formatSeconds(clip.duration)}` : "未录音";
+}
+
+function stopRecording() {
+  const active = currentRecording;
+  if (!active || active.stopping) return;
+  active.stopping = true;
+  clearInterval(active.timer);
+  $("#stop-recording").disabled = true;
+  $("#oral-status").textContent = "正在生成录音……";
+  try { active.recorder.stop(); } catch { cancelRecording(); showToast("录音未能正常结束，请重试"); }
+}
+
+async function startRecording() {
+  if (state.checkinMode !== "oral" || recordingPending || currentRecording) return;
+  if (!window.isSecureContext) return showToast("录音需要 HTTPS 或 localhost 安全环境");
+  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) return showToast("当前浏览器不支持录音，可继续文字训练");
+  const token = ++recordingToken;
+  const round = state.attempt === 1 ? "first" : "second";
+  const limit = Number($("#oral-duration").value);
+  recordingPending = true;
+  renderOralPanel();
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (token !== recordingToken) return stopTracks(stream);
+    const mime = pickAudioMime(window.MediaRecorder);
+    let recorder;
+    try { recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); }
+    catch { recorder = new MediaRecorder(stream); } // 指定格式失败时交给浏览器选择。
+    const chunks = [];
+    const startedAt = performance.now();
+    recorder.ondataavailable = (event) => { if (event.data?.size) chunks.push(event.data); };
+    recorder.onerror = () => { if (token === recordingToken) { cancelRecording(); showToast("录音失败，请重试或改用文字训练"); } };
+    recorder.onstop = () => {
+      stopTracks(stream);
+      if (token !== recordingToken) return;
+      clearInterval(currentRecording?.timer);
+      currentRecording = null;
+      const type = recorder.mimeType || chunks[0]?.type || "application/octet-stream";
+      const blob = new Blob(chunks, { type });
+      if (!blob.size) { renderOralPanel(); return showToast("没有录到声音，请重试"); }
+      const previous = state.oralClips[round];
+      if (previous) URL.revokeObjectURL(previous.url);
+      state.oralClips[round] = { url: URL.createObjectURL(blob), type, duration: Math.min(limit, Math.max(1, Math.round((performance.now() - startedAt) / 1000))), selfReview: "" };
+      renderOralPanel();
+    };
+    recorder.start();
+    currentRecording = { recorder, stream, limit, timer: null, stopping: false };
+    currentRecording.timer = setInterval(() => {
+      if (token !== recordingToken || !currentRecording) return;
+      const left = Math.max(0, limit - Math.floor((performance.now() - startedAt) / 1000));
+      $("#oral-status").textContent = `剩余 ${formatSeconds(left)}`;
+      if (left === 0) stopRecording();
+    }, 250);
+  } catch (error) {
+    stopTracks(stream);
+    if (token === recordingToken) {
+      const message = error.name === "NotAllowedError" ? "未获得麦克风权限，可继续文字训练"
+        : error.name === "NotFoundError" ? "未找到麦克风，可继续文字训练"
+        : error.name === "NotReadableError" ? "麦克风可能被其他程序占用"
+        : "无法开始录音，请检查麦克风或浏览器设置";
+      showToast(message);
+    }
+  } finally {
+    if (token === recordingToken) { recordingPending = false; renderOralPanel(); }
+  }
 }
 
 async function callAi(type, payload, signal) {
@@ -236,7 +371,6 @@ function renderCheckinFeedback(rawFeedback) {
 }
 
 function startRewrite(feedback) {
-  state.firstAnswer = $("#checkin-answer").value.trim();
   state.firstFeedback = feedback;
   state.attempt = 2;
   $("#answer-title").textContent = "第二次作答";
@@ -245,9 +379,10 @@ function startRewrite(feedback) {
   $("#checkin-count").textContent = String(state.firstAnswer.length);
   $("#submit-checkin").textContent = "提交改写并完成训练";
   $("#checkin-feedback").classList.add("hidden");
+  renderOralPanel();
   $("#checkin-answer").focus();
   $(".answer-card").scrollIntoView({ behavior: "smooth", block: "start" });
-  showToast("请根据反馈修改原文，再提交一次");
+  showToast(state.checkinMode === "oral" ? "请重新口述、回放自评，再修改转写文字" : "请根据反馈修改原文，再提交一次");
 }
 
 async function submitCheckin() {
@@ -257,6 +392,14 @@ async function submitCheckin() {
   const answer = $("#checkin-answer").value.trim();
   if (answer.length < 30) return showToast("至少写 30 个字，才能进行有效分析");
   if (state.attempt === 2 && answer === state.firstAnswer) return showToast("请先根据反馈修改内容，再提交第二次作答");
+  if (state.checkinMode === "oral") {
+    if (recordingPending || currentRecording) return showToast("请先结束本轮录音");
+    const clip = state.oralClips[state.attempt === 1 ? "first" : "second"];
+    if (!clip) return showToast("请先完成本轮录音并回放");
+    const selfReview = $("#oral-self-review").value.trim();
+    if (selfReview.length < 10) return showToast("请先写至少 10 个字的回放自评");
+    clip.selfReview = selfReview;
+  }
 
   const button = $("#submit-checkin");
   const controller = new AbortController();
@@ -273,6 +416,7 @@ async function submitCheckin() {
       previousFeedback: state.attempt === 2 ? state.firstFeedback : null,
     }, controller.signal);
     const normalized = renderCheckinFeedback(feedback);
+    if (state.attempt === 1) state.firstAnswer = answer;
     if (state.attempt === 2) {
       const record = {
         type: "checkin",
@@ -289,6 +433,11 @@ async function submitCheckin() {
         secondAnswer: answer,
         firstFeedback: state.firstFeedback,
         secondFeedback: normalized,
+        mode: state.checkinMode,
+        ...(state.checkinMode === "oral" ? { oral: {
+          first: { duration: state.oralClips.first.duration, selfReview: state.oralClips.first.selfReview },
+          second: { duration: state.oralClips.second.duration, selfReview: state.oralClips.second.selfReview },
+        } } : {}),
         meta: feedback.meta,
         firstMeta: state.firstFeedback?.meta,
       };
@@ -307,6 +456,8 @@ async function submitCheckin() {
 
 async function generateVariant() {
   if (!state.question || activeRequests.variant) return;
+  if (activeRequests.checkin) return showToast("请等待评分完成或先取消请求");
+  if (recordingPending || currentRecording) return showToast("请先停止录音，再生成变式题");
   const sourceId = state.question.sourceId || state.question.id;
   const controller = new AbortController();
   activeRequests.variant = controller;
@@ -461,15 +612,20 @@ function renderRecords() {
     const date = new Date(record.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
     const score = hasVerifiedScores(record) ? record.score : record.type === "material" ? "分析" : "未核验";
     const tags = [...new Set([...getIssueTags(record.firstFeedback), ...getIssueTags(record.secondFeedback)])];
+    const oral = record.mode === "oral" && record.oral ? `
+        <p class="record-comparison">口头训练 · 初答 ${escapeHtml(formatSeconds(record.oral.first?.duration))} · 改写 ${escapeHtml(formatSeconds(record.oral.second?.duration))}（音频未长期保存）</p>
+        <h4>初答回放自评</h4><p class="record-answer">${escapeHtml(record.oral.first?.selfReview || "")}</p>
+        <h4>改写回放自评</h4><p class="record-answer">${escapeHtml(record.oral.second?.selfReview || "")}</p>` : "";
     const detail = record.type === "checkin" && record.firstAnswer && record.secondAnswer ? `
       <details class="record-detail"><summary>查看初答与改写${record.firstFeedback?.total != null ? ` · ${escapeHtml(record.firstFeedback.total)} → ${escapeHtml(record.score)} 分` : ""}</summary>
         ${tags.length ? `<p class="record-tags">问题标签：${tags.map(escapeHtml).join(" · ")}</p>` : ""}
+        ${oral}
         <h4>第一次作答</h4><p class="record-answer">${escapeHtml(record.firstAnswer)}</p>
         <h4>第二次作答</h4><p class="record-answer">${escapeHtml(record.secondAnswer)}</p>
         ${record.secondFeedback?.comparison ? `<p class="record-comparison">${escapeHtml(record.secondFeedback.comparison)}</p>` : ""}
       </details>` : record.type === "material" && record.material ? `
       <details class="record-detail"><summary>查看分析材料</summary><p class="record-answer">${escapeHtml(record.material)}</p></details>` : "";
-    return `<article class="record-card"><time>${escapeHtml(date)}</time><div><h3>${escapeHtml(record.title)}</h3><p>${escapeHtml(record.summary || "已完成训练")}</p></div><span class="record-score">${escapeHtml(score)}</span>${detail}</article>`;
+    return `<article class="record-card"><time>${escapeHtml(date)}</time><div><h3>${escapeHtml(record.title)}${record.mode === "oral" ? '<small class="record-mode">口头</small>' : ""}</h3><p>${escapeHtml(record.summary || "已完成训练")}</p></div><span class="record-score">${escapeHtml(score)}</span>${detail}</article>`;
   }).join("");
 }
 
@@ -555,6 +711,21 @@ async function importData(event) {
 
 function bindEvents() {
   $all("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
+  $all("[data-checkin-mode]").forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.checkinMode === state.checkinMode) return;
+    if (recordingPending || currentRecording) return showToast("请先停止录音，再切换训练方式");
+    if (activeRequests.checkin) return showToast("请等待评分完成或先取消请求");
+    if ((state.firstFeedback || $("#checkin-answer").value.trim() || state.oralClips.first || state.oralClips.second)
+      && !window.confirm("切换方式会清空当前作答和临时录音；已完成的记录不受影响。确定继续吗？")) return;
+    state.checkinMode = button.dataset.checkinMode;
+    resetCheckin();
+  }));
+  $("#start-recording").addEventListener("click", startRecording);
+  $("#stop-recording").addEventListener("click", stopRecording);
+  $("#oral-self-review").addEventListener("input", (event) => {
+    const clip = state.oralClips[state.attempt === 1 ? "first" : "second"];
+    if (clip) clip.selfReview = event.target.value;
+  });
   $("#change-question").addEventListener("click", () => {
     activeRequests.checkin?.abort();
     activeRequests.variant?.abort();
@@ -620,6 +791,7 @@ function bindEvents() {
     const view = location.hash.slice(1);
     if (viewMeta[view]) navigate(view);
   });
+  window.addEventListener("pagehide", clearOralClips);
 }
 
 async function init() {

@@ -61,6 +61,9 @@
         </section>
 
         <section class="view" id="view-checkin">
+          <div class="segmented checkin-mode" role="group" aria-label="打卡方式">
+            <button class="active" data-checkin-mode="text">文字训练</button><button data-checkin-mode="oral">口头训练</button>
+          </div>
           <div class="training-layout">
             <article class="paper-card question-card">
               <div class="card-meta"><span class="pill" id="question-category">加载题库中</span><span id="question-difficulty"></span><span id="question-number"></span></div>
@@ -72,6 +75,15 @@
 
             <article class="paper-card answer-card">
               <div class="card-title-row"><div><p class="eyebrow">YOUR ANSWER</p><h2 id="answer-title">第一次作答</h2></div><span id="answer-step" class="step-badge">1 / 2</span></div>
+              <div class="oral-panel hidden" id="oral-panel">
+                <p>先限时口述并回放自评，再手动整理转写文字。AI 只根据文字评分，不分析声音。</p>
+                <div class="oral-controls"><label for="oral-duration">限时</label><select id="oral-duration"><option value="30">30 秒</option><option value="60">1 分钟</option><option value="120">2 分钟</option></select><button class="outline-button" id="start-recording">开始录音</button><button class="outline-button hidden" id="stop-recording">停止录音</button><strong id="oral-status" role="status">未录音</strong></div>
+                <div class="oral-playback hidden" id="oral-playback"><audio id="oral-audio" controls></audio><a class="text-button" id="oral-download">下载本轮录音</a></div>
+                <div class="oral-playback hidden" id="oral-first-playback"><span>第一次录音</span><audio id="oral-first-audio" controls></audio></div>
+                <label for="oral-self-review">回放后自评</label><textarea id="oral-self-review" maxlength="500" placeholder="结论是否明确？顺序是否清楚？哪里有重复或口头禅？"></textarea>
+                <small>录音仅在当前页面保留，可自行下载；刷新后不会保留音频。</small>
+              </div>
+              <label class="answer-label" id="answer-label" for="checkin-answer">写下你的回答</label>
               <textarea id="checkin-answer" maxlength="1600" placeholder="先用一句话写出结论，再给出 2～3 个理由……"></textarea>
               <div class="editor-footer"><span><b id="checkin-count">0</b> / 1600 字</span><div><button class="outline-button hidden" id="cancel-checkin">取消请求</button> <button class="primary-button" id="submit-checkin">提交并获取反馈</button></div></div>
             </article>
@@ -140,6 +152,7 @@
     <div class="toast" id="toast" role="status"></div>
     <script src="/question-selection.js"></script>
     <script src="/review.js"></script>
+    <script src="/audio-utils.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
