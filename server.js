@@ -61,20 +61,27 @@ const server = http.createServer(async (request, response) => {
     return sendJson(response, 200, {
       ok: true,
       provider: "deepseek",
+      model: process.env.DEEPSEEK_MODEL || "deepseek-flash",
       envKeyConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
     });
   }
 
   if (request.method === "POST" && request.url === "/api/ai") {
+    const controller = new AbortController();
+    response.on("close", () => {
+      if (!response.writableEnded) controller.abort();
+    });
     try {
       const body = await readJson(request);
       const result = await runAiTask({
         type: body.type,
         payload: body.payload || {},
         apiKey: request.headers["x-deepseek-key"],
+        signal: controller.signal,
       });
       return sendJson(response, 200, result);
     } catch (error) {
+      if (response.destroyed) return;
       return sendJson(response, error.statusCode || 500, { error: error.message || "AI 服务异常" });
     }
   }

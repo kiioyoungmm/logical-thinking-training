@@ -37,7 +37,7 @@
           <div class="hero-card">
             <div>
               <span class="pill">今日训练 · 约 10 分钟</span>
-              <h2>先想清楚，再说明白。</h2>
+              <h2>先想清楚，<br />再说明白。</h2>
               <p>一道题、两次表达、一次有针对性的反馈。重点不在答得漂亮，而在看见自己的思考过程。</p>
               <button class="primary-button" data-view="checkin">开始今日训练 <span>→</span></button>
             </div>
@@ -73,7 +73,7 @@
             <article class="paper-card answer-card">
               <div class="card-title-row"><div><p class="eyebrow">YOUR ANSWER</p><h2 id="answer-title">第一次作答</h2></div><span id="answer-step" class="step-badge">1 / 2</span></div>
               <textarea id="checkin-answer" maxlength="1600" placeholder="先用一句话写出结论，再给出 2～3 个理由……"></textarea>
-              <div class="editor-footer"><span><b id="checkin-count">0</b> / 1600 字</span><button class="primary-button" id="submit-checkin">提交并获取反馈</button></div>
+              <div class="editor-footer"><span><b id="checkin-count">0</b> / 1600 字</span><div><button class="outline-button hidden" id="cancel-checkin">取消请求</button> <button class="primary-button" id="submit-checkin">提交并获取反馈</button></div></div>
             </article>
           </div>
           <section class="feedback-panel hidden" id="checkin-feedback"></section>
@@ -96,7 +96,7 @@
               <label for="user-evidence">它用了哪些主要论据？</label>
               <textarea id="user-evidence" maxlength="1000" placeholder="按 1、2、3 列出主要论据"></textarea>
             </div>
-            <div class="action-row"><p>AI 会区分事实、观点、假设与推论。</p><button class="primary-button" id="analyze-material">开始分析</button></div>
+            <div class="action-row"><p>AI 会区分事实、观点、假设与推论。</p><div><button class="outline-button hidden" id="cancel-material">取消请求</button> <button class="primary-button" id="analyze-material">开始分析</button></div></div>
           </article>
           <section class="feedback-panel hidden" id="material-result"></section>
         </section>
@@ -117,7 +117,7 @@
         <section class="view" id="view-settings">
           <div class="section-heading"><div><p class="eyebrow">AI SETTINGS</p><h2>模型设置</h2><p>当前仅支持 DeepSeek，后续可扩展其他模型。</p></div></div>
           <article class="paper-card settings-card">
-            <div class="status-row"><div><strong>DeepSeek</strong><p>deepseek-chat</p></div><span class="status-dot" id="key-status">未配置</span></div>
+            <div class="status-row"><div><strong>DeepSeek</strong><p>deepseek-flash</p></div><span class="status-dot" id="key-status">未配置</span></div>
             <label for="api-key">API Key</label>
             <div class="key-input"><input id="api-key" type="password" autocomplete="off" placeholder="sk-……" /><button id="toggle-key" class="outline-button">显示</button></div>
             <p class="privacy-note">为降低泄露风险，网页填写的 Key 仅保存在当前浏览器会话中，关闭浏览器后自动清除。也可以在服务器环境变量中配置。</p>

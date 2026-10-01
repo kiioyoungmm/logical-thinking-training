@@ -5,7 +5,8 @@
   "description": "逻辑思维与表达能力训练工具",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

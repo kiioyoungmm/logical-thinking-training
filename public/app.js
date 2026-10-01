@@ -57,11 +57,14 @@ const state = {
   firstAnswer: "",
   firstFeedback: null,
   materialMode: "training",
-  serverHasKey: false,
+  serverHasKey: null,
+  completedRecordId: null,
+  materialRecordId: null,
 };
 
 const store = loadStore();
 let toastTimer;
+const activeRequests = { checkin: null, material: null };
 
 function $(selector) {
   return document.querySelector(selector);
@@ -145,6 +148,7 @@ function resetCheckin() {
   state.attempt = 1;
   state.firstAnswer = "";
   state.firstFeedback = null;
+  state.completedRecordId = null;
   $("#answer-title").textContent = "第一次作答";
   $("#answer-step").textContent = "1 / 2";
   $("#checkin-answer").value = "";
@@ -153,7 +157,7 @@ function resetCheckin() {
   $("#submit-checkin").textContent = "提交并获取反馈";
 }
 
-async function callAi(type, payload) {
+async function callAi(type, payload, signal) {
   const apiKey = sessionStorage.getItem(SESSION_KEY) || "";
   const response = await fetch("/api/ai", {
     method: "POST",
@@ -162,9 +166,12 @@ async function callAi(type, payload) {
       ...(apiKey ? { "X-DeepSeek-Key": apiKey } : {}),
     },
     body: JSON.stringify({ type, payload }),
+    signal,
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "AI 请求失败");
+  // 健康检查偶尔可能被浏览器拦截；实际调用成功即可确认服务端可用。
+  if (!apiKey) state.serverHasKey = true;
   return data;
 }
 
@@ -172,42 +179,11 @@ function hasAiKey() {
   return Boolean(sessionStorage.getItem(SESSION_KEY) || state.serverHasKey);
 }
 
-function createLocalFeedback(answer, previousAnswer = "") {
-  const length = answer.replace(/\s/g, "").length;
-  const paragraphs = answer.split(/\n+/).filter((item) => item.trim()).length;
-  const evidenceWords = (answer.match(/因为|理由|首先|其次|此外|一是|二是|例如|数据|事实/g) || []).length;
-  const reasoningWords = (answer.match(/因此|所以|意味着|导致|如果|那么|但是|然而|前提|除非/g) || []).length;
-  const hasConclusion = /^(我认为|结论|建议|应该|不应该|可以|不建议|我的判断)/.test(answer.trim());
-
-  const scores = {
-    claim: Math.min(20, 10 + (hasConclusion ? 7 : 2) + (length > 60 ? 2 : 0)),
-    evidence: Math.min(20, 8 + evidenceWords * 2 + (length > 180 ? 2 : 0)),
-    structure: Math.min(20, 9 + Math.min(6, paragraphs * 2) + (/1[.、]|①|第一/.test(answer) ? 3 : 0)),
-    reasoning: Math.min(20, 8 + reasoningWords * 2),
-    expression: Math.min(20, 10 + (length >= 80 && length <= 700 ? 5 : 1) + (paragraphs > 1 ? 2 : 0)),
-  };
-  const total = Object.values(scores).reduce((sum, score) => sum + score, 0);
-  const lowestKey = Object.keys(scores).sort((a, b) => scores[a] - scores[b])[0];
-  const issues = [];
-  if (!hasConclusion) issues.push({ type: "结论不够前置", quote: answer.slice(0, 36), explanation: "开头没有直接表明判断，读者需要自己寻找你的立场。" });
-  if (evidenceWords < 2) issues.push({ type: "论据不够显性", quote: "", explanation: "理由与结论之间的边界不清晰，可以用编号列出关键依据。" });
-  if (reasoningWords < 1) issues.push({ type: "推理链缺失", quote: "", explanation: "已经表达了观点，但还需要解释理由为什么能够支持结论。" });
-
-  return {
-    total,
-    scores,
-    summary: total >= 78 ? "整体结构已经清楚，下一步可以增强证据和边界条件。" : "观点基本可见，但论点、论据和推理之间还可以连接得更紧。",
-    strengths: [hasConclusion ? "能够较快给出自己的判断。" : "已经围绕题目给出了有效信息。", paragraphs > 1 ? "主动进行了分段，阅读负担较低。" : "表达比较集中，没有明显偏题。"],
-    issues: issues.slice(0, 3),
-    suggestions: [
-      `优先改善“${scoreLabels[lowestKey]}”：改写时只集中解决这一项。`,
-      "用一句话写结论，再用 2～3 条编号理由支撑。",
-      "每个理由后补一句“这为什么能支持我的结论”。",
-    ],
-    rewriteTask: `改写时重点提升“${scoreLabels[lowestKey]}”，保留核心意思，但让读者更容易跟上。`,
-    comparison: previousAnswer ? (answer.length > previousAnswer.length ? "第二次作答补充了更多解释，请继续检查新增内容是否都在支持结论。" : "第二次作答更加精简，请确认关键论据没有随之丢失。") : "",
-    local: true,
-  };
+function showRequestError(selector, message, retry) {
+  const panel = $(selector);
+  panel.innerHTML = `<div class="analysis-block"><h3>本次分析未完成</h3><p>${escapeHtml(message)}。没有生成或保存评分。</p><button class="outline-button" id="retry-request">重新生成反馈</button></div>`;
+  panel.classList.remove("hidden");
+  panel.querySelector("#retry-request").addEventListener("click", retry);
 }
 
 function normalizeFeedback(data) {
@@ -241,7 +217,7 @@ function renderCheckinFeedback(rawFeedback) {
   panel.innerHTML = `
     <div class="score-head">
       <div class="score-ring"><strong>${feedback.total}</strong></div>
-      <div><h2>${state.attempt === 1 ? "第一次反馈" : "改写反馈"}</h2><p>${escapeHtml(feedback.summary || "已完成本次分析。")}${feedback.local ? "（本地基础评估）" : ""}</p></div>
+      <div><h2>${state.attempt === 1 ? "第一次反馈" : "改写反馈"}</h2><p>${escapeHtml(feedback.summary || "已完成本次分析。")}</p></div>
     </div>
     <div class="score-grid">${scoreItems}</div>
     ${feedback.comparison ? `<div class="analysis-block wide"><h3>前后对比</h3><p>${escapeHtml(feedback.comparison)}</p></div>` : ""}
@@ -252,6 +228,7 @@ function renderCheckinFeedback(rawFeedback) {
       <div class="feedback-block"><h3>本轮训练重点</h3><p>${escapeHtml(feedback.rewriteTask || "根据上面的建议完成一次改写。")}</p></div>
     </div>
     <div class="rewrite-box"><div><strong>${state.attempt === 1 ? "不要追求完美，只解决一个主要问题" : "训练已完成"}</strong><p>${state.attempt === 1 ? escapeHtml(feedback.rewriteTask || "") : "记录已保存，可以回看本次变化。"}</p></div><button class="primary-button" id="feedback-action">${actionText}</button></div>
+    <button class="text-button" id="regenerate-checkin">重新生成反馈</button>
   `;
   panel.classList.remove("hidden");
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -260,6 +237,7 @@ function renderCheckinFeedback(rawFeedback) {
     if (state.attempt === 1) startRewrite(feedback);
     else navigate("records");
   });
+  $("#regenerate-checkin").addEventListener("click", submitCheckin);
   return feedback;
 }
 
@@ -279,60 +257,46 @@ function startRewrite(feedback) {
 }
 
 async function submitCheckin() {
+  if (activeRequests.checkin) return;
   const answer = $("#checkin-answer").value.trim();
   if (answer.length < 30) return showToast("至少写 30 个字，才能进行有效分析");
   if (state.attempt === 2 && answer === state.firstAnswer) return showToast("请先根据反馈修改内容，再提交第二次作答");
 
   const button = $("#submit-checkin");
+  const controller = new AbortController();
+  activeRequests.checkin = controller;
   setButtonLoading(button, true, "正在分析……");
-  let feedback;
+  $("#cancel-checkin").classList.remove("hidden");
+  $("#checkin-feedback").classList.add("hidden");
   try {
-    if (!hasAiKey()) throw new Error("未配置 API Key");
-    feedback = await callAi("checkin", {
+    const feedback = await callAi("checkin", {
       question: questions[state.questionIndex].title,
       answer,
       previousAnswer: state.attempt === 2 ? state.firstAnswer : "",
       previousFeedback: state.attempt === 2 ? state.firstFeedback : null,
-    });
+    }, controller.signal);
+    const normalized = renderCheckinFeedback(feedback);
+    if (state.attempt === 2) {
+      const record = {
+        type: "checkin",
+        title: questions[state.questionIndex].title,
+        score: normalized.total,
+        scores: normalized.scores,
+        summary: normalized.summary,
+        meta: feedback.meta,
+        firstMeta: state.firstFeedback?.meta,
+      };
+      if (state.completedRecordId) state.completedRecordId = updateRecord(state.completedRecordId, record);
+      else state.completedRecordId = addRecord(record);
+    }
   } catch (error) {
-    feedback = createLocalFeedback(answer, state.attempt === 2 ? state.firstAnswer : "");
-    showToast(`${error.message}，已改用本地基础评估`);
+    if (controller.signal.aborted) showToast("已取消，本次未保存评分");
+    else showRequestError("#checkin-feedback", error.message, submitCheckin);
   } finally {
+    activeRequests.checkin = null;
     setButtonLoading(button, false);
+    $("#cancel-checkin").classList.add("hidden");
   }
-
-  const normalized = renderCheckinFeedback(feedback);
-  if (state.attempt === 2) {
-    addRecord({
-      type: "checkin",
-      title: questions[state.questionIndex].title,
-      score: normalized.total,
-      scores: normalized.scores,
-      summary: normalized.summary,
-    });
-  }
-}
-
-function createLocalMaterialAnalysis(material, userClaim) {
-  const sentences = material.split(/[。！？\n]+/).map((item) => item.trim()).filter(Boolean);
-  const factHints = /数据|调查|报告|显示|发生|达到|增长|下降|年|月|日|%|％|个|人/;
-  const opinionHints = /认为|应该|最好|显然|一定|值得|重要|糟糕|优秀|可能/;
-  const facts = sentences.filter((item) => factHints.test(item)).slice(0, 4);
-  const opinions = sentences.filter((item) => opinionHints.test(item)).slice(0, 4);
-  const claim = userClaim || opinions[0] || sentences.at(-1) || "材料过短，暂时无法提取核心结论。";
-  return {
-    topic: sentences[0]?.slice(0, 50) || "未识别",
-    claim,
-    structure: sentences.slice(0, 5).map((content, index) => ({ type: index === 0 ? "背景/引入" : (content === claim ? "核心论点" : "相关信息"), content, relation: index === 0 ? "引出讨论" : "可能支持或补充核心观点" })),
-    facts,
-    opinions,
-    assumptions: ["材料可能默认读者接受其评价标准，但没有完整说明这一标准。"],
-    fallacies: [],
-    missing: ["需要核验材料中的事实来源与样本范围。", "需要寻找能够推翻核心结论的反例。"],
-    feedback: userClaim ? "你的拆解抓住了一个可能的结论。下一步请逐条检查：每个论据是否真的支持它，而不只是与主题相关。" : "当前为基础文本拆解；配置 DeepSeek 后可以获得更细致的语义与谬误分析。",
-    nextQuestion: "如果核心结论相反，什么证据最有可能支持它？",
-    local: true,
-  };
 }
 
 function renderMaterialResult(result) {
@@ -342,7 +306,7 @@ function renderMaterialResult(result) {
 
   const panel = $("#material-result");
   panel.innerHTML = `
-    <div class="score-head"><div><p class="eyebrow">ANALYSIS RESULT</p><h2>材料逻辑结构</h2><p>${result.local ? "当前使用本地基础拆解。配置 DeepSeek 后可获得深度语义分析。" : "AI 已完成材料拆解，请重点核对它的判断，而不是直接接受。"}</p></div></div>
+    <div class="score-head"><div><p class="eyebrow">ANALYSIS RESULT</p><h2>材料逻辑结构</h2><p>AI 已完成材料拆解，请重点核对它的判断，而不是直接接受。</p></div></div>
     <div class="analysis-grid">
       <div class="analysis-block"><h3>核心问题</h3><p>${escapeHtml(result.topic || "未识别")}</p></div>
       <div class="analysis-block"><h3>核心结论</h3><p>${escapeHtml(result.claim || "未识别")}</p></div>
@@ -355,39 +319,60 @@ function renderMaterialResult(result) {
       <div class="analysis-block wide"><h3>训练反馈</h3><p>${escapeHtml(result.feedback || "")}</p></div>
       <div class="analysis-block wide"><h3>继续思考</h3><p>${escapeHtml(result.nextQuestion || "")}</p></div>
     </div>
+    <button class="text-button" id="regenerate-material">重新生成反馈</button>
   `;
   panel.classList.remove("hidden");
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#regenerate-material").addEventListener("click", analyzeMaterial);
 }
 
 async function analyzeMaterial() {
+  if (activeRequests.material) return;
   const material = $("#material-input").value.trim();
-  const userClaim = $("#user-claim").value.trim();
-  const userEvidence = $("#user-evidence").value.trim();
+  // 直接分析模式不读取隐藏的训练答案，避免旧内容影响分析结果。
+  const userClaim = state.materialMode === "training" ? $("#user-claim").value.trim() : "";
+  const userEvidence = state.materialMode === "training" ? $("#user-evidence").value.trim() : "";
   if (material.length < 50) return showToast("请至少输入 50 个字的材料");
   if (state.materialMode === "training" && !userClaim) return showToast("训练模式下，请先写出你认为的核心结论");
 
   const button = $("#analyze-material");
+  const controller = new AbortController();
+  activeRequests.material = controller;
   setButtonLoading(button, true, "正在拆解……");
-  let result;
+  $("#cancel-material").classList.remove("hidden");
+  $("#material-result").classList.add("hidden");
   try {
-    if (!hasAiKey()) throw new Error("未配置 API Key");
-    result = await callAi("material", { material, mode: state.materialMode, userClaim, userEvidence });
+    const result = await callAi("material", { material, mode: state.materialMode, userClaim, userEvidence }, controller.signal);
+    renderMaterialResult(result);
+    const record = { type: "material", title: result.topic || material.slice(0, 36), summary: result.feedback || "已完成材料分析", meta: result.meta };
+    if (state.materialRecordId) state.materialRecordId = updateRecord(state.materialRecordId, record);
+    else state.materialRecordId = addRecord(record);
   } catch (error) {
-    result = createLocalMaterialAnalysis(material, userClaim);
-    showToast(`${error.message}，已改用本地基础拆解`);
+    if (controller.signal.aborted) showToast("已取消，本次未保存分析");
+    else showRequestError("#material-result", error.message, analyzeMaterial);
   } finally {
+    activeRequests.material = null;
     setButtonLoading(button, false);
+    $("#cancel-material").classList.add("hidden");
   }
-  renderMaterialResult(result);
-  addRecord({ type: "material", title: result.topic || material.slice(0, 36), summary: result.feedback || "已完成材料分析" });
 }
 
 function addRecord(record) {
-  store.records.unshift({ id: Date.now(), createdAt: new Date().toISOString(), ...record });
+  const id = Date.now();
+  store.records.unshift({ id, createdAt: new Date().toISOString(), ...record });
   store.records = store.records.slice(0, 100);
   saveStore();
   renderHome();
+  return id;
+}
+
+function updateRecord(id, record) {
+  const existing = store.records.find((item) => item.id === id);
+  if (!existing) return addRecord(record);
+  Object.assign(existing, record);
+  saveStore();
+  renderHome();
+  return id;
 }
 
 function getStreak() {
@@ -415,8 +400,12 @@ function getStreak() {
   return streak;
 }
 
+function hasVerifiedScores(record) {
+  return record.type === "checkin" && record.scores && record.meta?.provider === "deepseek";
+}
+
 function getAbilityAverages() {
-  const scored = store.records.filter((item) => item.type === "checkin" && item.scores);
+  const scored = store.records.filter(hasVerifiedScores);
   const result = Object.fromEntries(Object.keys(scoreLabels).map((key) => [key, 0]));
   if (!scored.length) return result;
   scored.forEach((record) => Object.keys(result).forEach((key) => { result[key] += Number(record.scores[key]) || 0; }));
@@ -429,7 +418,7 @@ function renderHome() {
   const weakest = Object.keys(averages).sort((a, b) => averages[a] - averages[b])[0];
   $("#home-streak").innerHTML = `${getStreak()}<small> 天</small>`;
   $("#home-total").innerHTML = `${store.records.length}<small> 次</small>`;
-  $("#home-focus").textContent = store.records.some((item) => item.scores) ? `提升${scoreLabels[weakest]}能力` : "建立训练基线";
+  $("#home-focus").textContent = store.records.some(hasVerifiedScores) ? `提升${scoreLabels[weakest]}能力` : "建立训练基线";
 }
 
 function renderRecords() {
@@ -440,13 +429,14 @@ function renderRecords() {
   }
   list.innerHTML = store.records.map((record) => {
     const date = new Date(record.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-    return `<article class="record-card"><time>${escapeHtml(date)}</time><div><h3>${escapeHtml(record.title)}</h3><p>${escapeHtml(record.summary || "已完成训练")}</p></div><span class="record-score">${record.score ?? (record.type === "material" ? "分析" : "—")}</span></article>`;
+    const score = hasVerifiedScores(record) ? record.score : record.type === "material" ? "分析" : "未核验";
+    return `<article class="record-card"><time>${escapeHtml(date)}</time><div><h3>${escapeHtml(record.title)}</h3><p>${escapeHtml(record.summary || "已完成训练")}</p></div><span class="record-score">${score}</span></article>`;
   }).join("");
 }
 
 function renderProfile() {
   const averages = getAbilityAverages();
-  const hasScores = store.records.some((item) => item.scores);
+  const hasScores = store.records.some(hasVerifiedScores);
   $("#ability-bars").innerHTML = Object.entries(scoreLabels).map(([key, label]) => `<div class="ability-row"><span>${label}</span><div class="bar-track"><i style="width:${averages[key] * 5}%"></i></div><strong>${averages[key]}</strong></div>`).join("");
   if (!hasScores) {
     $("#profile-focus").textContent = "先完成第一次训练";
@@ -461,7 +451,7 @@ function renderProfile() {
 function renderKeyStatus() {
   const ready = hasAiKey();
   const status = $("#key-status");
-  status.textContent = ready ? (sessionStorage.getItem(SESSION_KEY) ? "会话中已配置" : "服务器已配置") : "未配置";
+  status.textContent = ready ? (sessionStorage.getItem(SESSION_KEY) ? "会话中已配置" : "服务器已配置") : state.serverHasKey === null ? "无法检测服务" : "未配置";
   status.classList.toggle("ready", ready);
   $("#api-key").value = sessionStorage.getItem(SESSION_KEY) || "";
 }
@@ -469,17 +459,24 @@ function renderKeyStatus() {
 function bindEvents() {
   $all("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
   $("#change-question").addEventListener("click", () => {
+    activeRequests.checkin?.abort();
     state.questionIndex = (state.questionIndex + 1) % questions.length;
     resetCheckin();
     renderQuestion();
   });
   $("#checkin-answer").addEventListener("input", (event) => { $("#checkin-count").textContent = event.target.value.length; });
-  $("#material-input").addEventListener("input", (event) => { $("#material-count").textContent = event.target.value.length; });
+  $("#material-input").addEventListener("input", (event) => { $("#material-count").textContent = event.target.value.length; state.materialRecordId = null; });
+  $("#user-claim").addEventListener("input", () => { state.materialRecordId = null; });
+  $("#user-evidence").addEventListener("input", () => { state.materialRecordId = null; });
   $("#submit-checkin").addEventListener("click", submitCheckin);
+  $("#cancel-checkin").addEventListener("click", () => activeRequests.checkin?.abort());
   $("#analyze-material").addEventListener("click", analyzeMaterial);
+  $("#cancel-material").addEventListener("click", () => activeRequests.material?.abort());
 
   $all("[data-mode]").forEach((button) => button.addEventListener("click", () => {
+    activeRequests.material?.abort();
     state.materialMode = button.dataset.mode;
+    state.materialRecordId = null;
     $all("[data-mode]").forEach((item) => item.classList.toggle("active", item === button));
     $("#training-fields").classList.toggle("hidden", state.materialMode === "direct");
     $("#material-result").classList.add("hidden");
@@ -512,6 +509,12 @@ function bindEvents() {
     renderHome();
     showToast("训练记录已清空");
   });
+
+  // 同步手机浏览器返回键、前进键和手动修改地址栏哈希。
+  window.addEventListener("hashchange", () => {
+    const view = location.hash.slice(1);
+    if (viewMeta[view]) navigate(view);
+  });
 }
 
 async function init() {
@@ -522,8 +525,9 @@ async function init() {
     const response = await fetch("/api/health");
     const data = await response.json();
     state.serverHasKey = Boolean(data.envKeyConfigured);
+    if (data.model) $("#model-name").textContent = data.model;
   } catch {
-    state.serverHasKey = false;
+    state.serverHasKey = null;
   }
   const initialView = location.hash.slice(1);
   navigate(viewMeta[initialView] ? initialView : "home");

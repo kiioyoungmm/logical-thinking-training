@@ -1,3 +1,5 @@
+const MATERIAL_PROMPT_VERSION = "1.1.0";
+
 function buildMaterialPrompt(payload) {
   const trainingMode = payload.mode !== "direct";
   const userContent = [
@@ -23,10 +25,10 @@ function buildMaterialPrompt(payload) {
   "feedback": "${trainingMode ? "比较用户拆解与文本结构，指出一项做得好和两项可改进处" : "概括整体逻辑质量"}",
   "nextQuestion": "一个能推动用户继续思考的问题"
 }
-不要大段复述原文；证据不足时明确说明不确定。`,
+每个数组最多保留 5 项，每项尽量不超过 80 字。不要大段复述原文；证据不足时明确说明不确定。`,
     },
     { role: "user", content: userContent },
   ];
 }
 
-module.exports = { buildMaterialPrompt };
+module.exports = { buildMaterialPrompt, MATERIAL_PROMPT_VERSION };

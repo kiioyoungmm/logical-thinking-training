@@ -6,6 +6,8 @@ const SCORE_RULES = `
 4. 推理：论据能否支持结论，是否存在跳跃；
 5. 表达：语言是否简洁、准确、易懂。
 `;
+const CHECKIN_PROMPT_VERSION = "1.1.0";
+const SCORE_RUBRIC_VERSION = "1.0.0";
 
 function buildCheckinPrompt(payload) {
   const isRewrite = Boolean(payload.previousAnswer);
@@ -38,4 +40,4 @@ ${SCORE_RULES}
   ];
 }
 
-module.exports = { buildCheckinPrompt };
+module.exports = { buildCheckinPrompt, CHECKIN_PROMPT_VERSION, SCORE_RUBRIC_VERSION };
