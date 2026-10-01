@@ -171,11 +171,13 @@ button:focus-visible, textarea:focus-visible, input:focus-visible {
 .training-layout { display: grid; gap: 18px; grid-template-columns: .85fr 1.15fr; align-items: start; }
 .paper-card { padding: clamp(22px, 3vw, 34px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper-strong); box-shadow: var(--shadow); }
 .card-meta, .card-title-row, .editor-footer, .action-row, .status-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
-.card-meta { color: var(--muted); font-size: 12px; }
+.card-meta { flex-wrap: wrap; color: var(--muted); font-size: 12px; }
 .question-card h2 { margin: 24px 0 12px; font: 500 clamp(24px,3vw,34px) Georgia, "Songti SC", serif; line-height: 1.35; }
-.question-context { color: var(--muted); }
+.question-context { color: var(--muted); line-height: 1.85; }
 .prompt-box { margin-top: 24px; padding: 18px; border-left: 3px solid var(--gold); border-radius: 0 12px 12px 0; background: #f4f0e5; }
 .prompt-box ul { margin: 8px 0 0; padding-left: 20px; }
+.prompt-box p { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+.question-actions { display: flex; flex-wrap: wrap; gap: 18px; }
 .answer-card textarea, .material-card textarea, .settings-card input {
   width: 100%;
   border: 1px solid var(--line);

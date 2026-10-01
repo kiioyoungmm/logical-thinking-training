@@ -1,38 +1,7 @@
 const STORAGE_KEY = "logical-training-data-v1";
 const SESSION_KEY = "deepseek-api-key";
 
-const questions = [
-  {
-    category: "观点分析",
-    title: "远程办公是否应该成为公司的默认工作方式？",
-    context: "请站在公司管理者的角度作答。无需追求唯一正确答案，重点是让结论、理由与边界条件彼此对应。",
-    requirements: ["先用一句话给出明确结论", "提供 2～3 个相互独立的理由", "至少说明一个适用条件或例外情况"],
-  },
-  {
-    category: "方案决策",
-    title: "一个进度落后的项目，应该优先增加人手还是缩小范围？",
-    context: "项目距离原定发布日期还有两周，核心功能完成约 70%，团队已经连续加班。请提出你的建议。",
-    requirements: ["明确选择或给出有条件的选择", "说明判断所依据的关键信息", "指出方案的主要风险"],
-  },
-  {
-    category: "因果辨析",
-    title: "某产品降价后销量上涨，能否证明降价是销量增长的原因？",
-    context: "请分析这项判断是否充分，并说明还需要了解哪些信息。",
-    requirements: ["区分相关关系与因果关系", "提出至少两种其他可能解释", "说明如何进一步验证"],
-  },
-  {
-    category: "结构表达",
-    title: "向负责人说明：为什么本周不应该上线新功能？",
-    context: "已知测试仍发现严重问题，但业务团队担心延期影响推广计划。请用简洁、可执行的方式表达。",
-    requirements: ["结论先行", "理由不超过三点", "给出替代安排或下一步行动"],
-  },
-  {
-    category: "信息判断",
-    title: "看到“多数人都推荐”的产品时，你会如何判断它是否适合自己？",
-    context: "请给出一套可以实际执行的判断过程，而不是只表达谨慎态度。",
-    requirements: ["说明需要核验的信息", "区分大众评价与个人需求", "给出最终决策规则"],
-  },
-];
+let questions = [];
 
 const viewMeta = {
   home: ["DAILY PRACTICE", "今天，也把想法理清楚"],
@@ -52,7 +21,8 @@ const scoreLabels = {
 };
 
 const state = {
-  questionIndex: getDailyQuestionIndex(),
+  question: null,
+  questionReason: "",
   attempt: 1,
   firstAnswer: "",
   firstFeedback: null,
@@ -64,7 +34,7 @@ const state = {
 
 const store = loadStore();
 let toastTimer;
-const activeRequests = { checkin: null, material: null };
+const activeRequests = { checkin: null, material: null, variant: null };
 
 function $(selector) {
   return document.querySelector(selector);
@@ -85,9 +55,10 @@ function escapeHtml(value = "") {
 
 function loadStore() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { records: [] };
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    return { records: Array.isArray(data.records) ? data.records : [], questionHistory: Array.isArray(data.questionHistory) ? data.questionHistory : [] };
   } catch {
-    return { records: [] };
+    return { records: [], questionHistory: [] };
   }
 }
 
@@ -95,10 +66,9 @@ function saveStore() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
 }
 
-function getDailyQuestionIndex() {
+function getLocalDateKey() {
   const now = new Date();
-  const dayNumber = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000);
-  return dayNumber % questions.length;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function showToast(message) {
@@ -135,13 +105,37 @@ function navigate(view) {
   history.replaceState(null, "", `#${view}`);
 }
 
+function chooseQuestion(force = false) {
+  const today = getLocalDateKey();
+  const saved = !force && [...store.questionHistory].reverse().find((item) => item.date === today && questions.some((question) => question.id === item.id));
+  const question = saved ? questions.find((item) => item.id === saved.id) : selectQuestion(questions, store.questionHistory, store.records, today);
+  if (!question) return;
+  if (!saved) {
+    store.questionHistory.push({ id: question.id, date: today });
+    store.questionHistory = store.questionHistory.slice(-100);
+    saveStore();
+  }
+  state.question = question;
+  const averages = getAbilityAverages();
+  const weakest = Object.keys(averages).sort((a, b) => averages[a] - averages[b])[0];
+  state.questionReason = store.records.some(hasVerifiedScores) && question.skills.includes(weakest) ? `针对弱项：${scoreLabels[weakest]}` : "精选训练";
+}
+
 function renderQuestion() {
-  const question = questions[state.questionIndex];
+  const question = state.question;
+  if (!question) {
+    $("#question-title").textContent = "题库加载失败，请刷新页面重试";
+    $("#submit-checkin").disabled = true;
+    return;
+  }
+  $("#submit-checkin").disabled = false;
   $("#question-category").textContent = question.category;
-  $("#question-number").textContent = `题目 ${state.questionIndex + 1} / ${questions.length}`;
+  $("#question-difficulty").textContent = ["", "初级", "中级", "高级"][question.difficulty];
+  $("#question-number").textContent = `${question.sourceId ? "AI 变式 · " : ""}${state.questionReason} · 题库 ${questions.length} 题`;
   $("#question-title").textContent = question.title;
   $("#question-context").textContent = question.context;
   $("#question-requirements").innerHTML = question.requirements.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  $("#question-focus").textContent = `评分重点：${question.focus}`;
 }
 
 function resetCheckin() {
@@ -258,6 +252,8 @@ function startRewrite(feedback) {
 
 async function submitCheckin() {
   if (activeRequests.checkin) return;
+  const question = state.question;
+  if (!question) return showToast("题库尚未加载");
   const answer = $("#checkin-answer").value.trim();
   if (answer.length < 30) return showToast("至少写 30 个字，才能进行有效分析");
   if (state.attempt === 2 && answer === state.firstAnswer) return showToast("请先根据反馈修改内容，再提交第二次作答");
@@ -270,7 +266,8 @@ async function submitCheckin() {
   $("#checkin-feedback").classList.add("hidden");
   try {
     const feedback = await callAi("checkin", {
-      question: questions[state.questionIndex].title,
+      questionId: question.sourceId || question.id,
+      ...(question.sourceId ? { question } : {}),
       answer,
       previousAnswer: state.attempt === 2 ? state.firstAnswer : "",
       previousFeedback: state.attempt === 2 ? state.firstFeedback : null,
@@ -279,7 +276,12 @@ async function submitCheckin() {
     if (state.attempt === 2) {
       const record = {
         type: "checkin",
-        title: questions[state.questionIndex].title,
+        title: question.title,
+        questionId: question.sourceId || question.id,
+        category: question.category,
+        difficulty: question.difficulty,
+        variant: Boolean(question.sourceId),
+        ...(question.sourceId ? { variantQuestion: { title: question.title, context: question.context, requirements: question.requirements, focus: question.focus } } : {}),
         score: normalized.total,
         scores: normalized.scores,
         summary: normalized.summary,
@@ -296,6 +298,29 @@ async function submitCheckin() {
     activeRequests.checkin = null;
     setButtonLoading(button, false);
     $("#cancel-checkin").classList.add("hidden");
+  }
+}
+
+async function generateVariant() {
+  if (!state.question || activeRequests.variant) return;
+  const sourceId = state.question.sourceId || state.question.id;
+  const controller = new AbortController();
+  activeRequests.variant = controller;
+  const button = $("#generate-variant");
+  setButtonLoading(button, true, "正在生成……");
+  $("#cancel-variant").classList.remove("hidden");
+  try {
+    const result = await callAi("variant", { questionId: sourceId }, controller.signal);
+    state.question = { ...result, id: `V-${Date.now()}` };
+    resetCheckin();
+    renderQuestion();
+    showToast("已生成同类变式题，原题仍保留在题库中");
+  } catch (error) {
+    showToast(controller.signal.aborted ? "已取消生成" : error.message);
+  } finally {
+    activeRequests.variant = null;
+    setButtonLoading(button, false);
+    $("#cancel-variant").classList.add("hidden");
   }
 }
 
@@ -405,7 +430,7 @@ function hasVerifiedScores(record) {
 }
 
 function getAbilityAverages() {
-  const scored = store.records.filter(hasVerifiedScores);
+  const scored = store.records.filter(hasVerifiedScores).slice(0, 10);
   const result = Object.fromEntries(Object.keys(scoreLabels).map((key) => [key, 0]));
   if (!scored.length) return result;
   scored.forEach((record) => Object.keys(result).forEach((key) => { result[key] += Number(record.scores[key]) || 0; }));
@@ -460,10 +485,14 @@ function bindEvents() {
   $all("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
   $("#change-question").addEventListener("click", () => {
     activeRequests.checkin?.abort();
-    state.questionIndex = (state.questionIndex + 1) % questions.length;
+    activeRequests.variant?.abort();
+    if (!questions.length) return showToast("题库尚未加载");
+    chooseQuestion(true);
     resetCheckin();
     renderQuestion();
   });
+  $("#generate-variant").addEventListener("click", generateVariant);
+  $("#cancel-variant").addEventListener("click", () => activeRequests.variant?.abort());
   $("#checkin-answer").addEventListener("input", (event) => { $("#checkin-count").textContent = event.target.value.length; });
   $("#material-input").addEventListener("input", (event) => { $("#material-count").textContent = event.target.value.length; state.materialRecordId = null; });
   $("#user-claim").addEventListener("input", () => { state.materialRecordId = null; });
@@ -519,6 +548,15 @@ function bindEvents() {
 
 async function init() {
   bindEvents();
+  try {
+    const response = await fetch("/api/questions");
+    if (!response.ok) throw new Error("题库加载失败");
+    const data = await response.json();
+    questions = data.questions;
+    chooseQuestion();
+  } catch {
+    showToast("题库加载失败，请刷新页面重试");
+  }
   renderQuestion();
   renderHome();
   try {

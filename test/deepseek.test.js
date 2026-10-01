@@ -91,7 +91,7 @@ test("评分响应包含模型、Prompt 和量表版本", async () => {
   try {
     const result = await runAiTask({ type: "checkin", payload: { question: "测试", answer: "测试作答" }, apiKey: "test-key" });
     assert.equal(result.total, 60);
-    assert.deepEqual(result.meta, { provider: "deepseek", model: "deepseek-flash", promptVersion: "1.1.0", rubricVersion: "1.0.0" });
+    assert.deepEqual(result.meta, { provider: "deepseek", model: "deepseek-flash", promptVersion: "1.2.1", rubricVersion: "1.0.0" });
   } finally {
     global.fetch = originalFetch;
   }

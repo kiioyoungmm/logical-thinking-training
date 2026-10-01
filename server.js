@@ -2,6 +2,9 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { runAiTask } = require("./server/ai");
+const { loadQuestions } = require("./server/question-bank");
+
+const questions = loadQuestions();
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -64,6 +67,10 @@ const server = http.createServer(async (request, response) => {
       model: process.env.DEEPSEEK_MODEL || "deepseek-flash",
       envKeyConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
     });
+  }
+
+  if (request.method === "GET" && request.url === "/api/questions") {
+    return sendJson(response, 200, { version: "1.2.0", questions });
   }
 
   if (request.method === "POST" && request.url === "/api/ai") {

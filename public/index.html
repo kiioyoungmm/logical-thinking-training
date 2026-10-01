@@ -63,11 +63,11 @@
         <section class="view" id="view-checkin">
           <div class="training-layout">
             <article class="paper-card question-card">
-              <div class="card-meta"><span class="pill" id="question-category">观点分析</span><span id="question-number">今日第 1 题</span></div>
+              <div class="card-meta"><span class="pill" id="question-category">加载题库中</span><span id="question-difficulty"></span><span id="question-number"></span></div>
               <h2 id="question-title"></h2>
               <p id="question-context" class="question-context"></p>
-              <div class="prompt-box"><strong>请完成：</strong><ul id="question-requirements"></ul></div>
-              <button class="text-button" id="change-question">换一道题</button>
+              <div class="prompt-box"><strong>请完成：</strong><ul id="question-requirements"></ul><p id="question-focus"></p></div>
+              <div class="question-actions"><button class="text-button" id="change-question">换一道题</button><button class="text-button" id="generate-variant">生成同类变式</button><button class="text-button hidden" id="cancel-variant">取消生成</button></div>
             </article>
 
             <article class="paper-card answer-card">
@@ -131,6 +131,7 @@
       </nav>
     </div>
     <div class="toast" id="toast" role="status"></div>
+    <script src="/question-selection.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

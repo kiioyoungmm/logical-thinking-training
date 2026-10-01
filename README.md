@@ -27,10 +27,24 @@ npm start
 未配置或 AI 请求失败时，页面会显示错误并允许重试，不会生成或保存本地模拟评分。分析较慢时可以取消请求，已完成的反馈也可重新生成。
 旧版训练记录如果没有模型来源信息，会保留原始内容，但分数标记为“未核验”，不纳入能力统计。
 
+## V1.2 题库
+
+题库位于 `data/questions.json`，预置 36 道模拟案例题，按六类能力和初、中、高三级组织。每天优先选择未练过、贴近最近低分维度的题目；连续三题同类时会切换类别。页面可换题，也可让 DeepSeek 基于当前题目生成同难度变式，不会无限随机出题。
+
+批量加题时，准备一个与题库相同格式的 JSON 数组，运行：
+
+```bash
+npm run import:questions -- path/to/new-questions.json
+```
+
+每题需要 `id`（如 `CL07`）、`category`、`difficulty`（1～3）、`skills`、`title`、`context`（至少 80 字）、`requirements` 和 `focus`。导入会检查格式及重复 ID，成功后重启服务即可使用；原有浏览器训练记录不会改变。题目材料和评分重点会一同提供给打卡评估。
+
 ## 代码结构
 
 ```text
 public/                 前端页面、样式和交互
+data/questions.json      预置题库
+scripts/                 题库批量导入
 server/providers/       AI 模型适配器
 server/skills/          两套独立 Prompt Skill
 server/ai.js            AI 任务入口
